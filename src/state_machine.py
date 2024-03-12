@@ -23,7 +23,7 @@ class StateOne(State):
         msg = Message(to=str(self.agent.jid))
         msg.body = "msg_from_state_one_to_state_three"
         await self.send(msg)
-        self.set_next_state(STATE_TWO)
+        #self.set_next_state(STATE_TWO)
 
 
 class StateTwo(State):
@@ -52,7 +52,7 @@ class FSMAgent(Agent):
 
 
 async def main():
-    fsmagent = FSMAgent("fsmagent@your_xmpp_server", "your_password")
+    fsmagent = FSMAgent("fsmagent@localhost", "your_password")
     await fsmagent.start()
 
     await spade.wait_until_finished(fsmagent)
