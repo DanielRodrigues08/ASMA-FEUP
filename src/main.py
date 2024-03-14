@@ -1,20 +1,40 @@
 import asyncio
 import spade
-from spade import wait_until_finished
-from spade.agent import Agent
-from spade.message import Message
-from spade.behaviour import CyclicBehaviour
-from state_machine_drone import StateBehaviour, Begin, Negotiating, Delivering, ReturningCenter, NoBattery, DroneAgent
+from drone import  DroneAgent
 from center import Center
-
+from ambient import Ambient
+from supplier import Supplier
 async def main():
-    center = Center("center@localhost", "pass", "orders", "pos")
+
+
+    first_drone  = DroneAgent("drone1@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
+    second_drone = DroneAgent("drone2@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
+
+    center       = Center("center@localhost", "pass", "orders", "pos")
+    ambient      = Ambient("ambient@localhost", "pass", set(first_drone.jid, second_drone.jid))
+    supplier     = Supplier("supplier@localhost", "pass", set(center.jid))
+
     await center.start()
-    print("Center started")
+    await ambient.start()
+    await supplier.start()
     
-    drone = DroneAgent("drone@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
-    await drone.start()
-    print("Drone started")
+    print("Center started")
+    print("Ambient started")
+    print("Supplier started")
+
+    
+
+
+    center.add_drone(first_drone.jid)
+    center.add_drone(second_drone.jid)
+
+
+    await first_drone.start()
+    await second_drone.start()
+
+    print("Drones started")
+
+
 
 
 if __name__ == "__main__":

@@ -1,15 +1,46 @@
 import spade
+import heapq
+import time
+
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 
 
 class Center(Agent):
-    def __init__(self, jid, password, orders, position):
+    def __init__(self, jid, password, orders, position, drones = set()):
         super().__init__(jid, password)
-        self.orders = orders #for now, without supplier
-        self.position = position 
         
+        self.orders         = heapq.heapify(orders)
+        self.position       = position 
+        self.drones         = drones
+        self.to_fulfill     = set()
+        self.timeout_drones = set()
+        self.timer          = time.time()
+
+    
+    def add_drone(self, drone_jid):
+        self.drones.append(drone_jid)
+
+    def reset_orders(self):
+        for order in self.to_fulfill:
+            heapq.heappush(self.orders, order)
+
+    def timeout_drone(self, drone_jid):
+        self.timeout_drones.add(drone_jid)
+
+    def assign_order(self, drone_jid):
+        order        = heapq.heappop(self.orders)
+        msg          = Message(to=str(drone_jid))
+        msg.body     = "ORDER"
+        msg.metadata = order
+        self.to_fulfill.add(order.id)
+        self.send(msg)
+        
+    def receive_batch(self, metadata):
+        for order in metadata:
+            heapq.heappush(self.orders, metadata[order])
+    
     class AssignOrdersBehav(CyclicBehaviour):
         async def on_start(self):
             print(f"Center starts working")
@@ -19,19 +50,43 @@ class Center(Agent):
             await self.agent.stop() 
             
         async def run(self):
-            msg = await self.receive(timeout=100)
-            if msg.body == "Ready to deliver":
-                msg_ready = Message(to=str(msg.sender)) #msg to the drone (drone jid)
-                msg_ready.body = "OK"
-                await self.send(msg_ready)
-                msg2 = await self.receive(timeout=10)
-                if msg2.body == "Orders for me":
-                    msg_conf = Message(to=str(msg2.sender)) #msg to the drone (drone jid)
-                    msg_conf.body = "order1_1 order1_2 order1_3" #we have to make the logic for the center to assign orders to the drones according to capacity, location..
-                    await self.send(msg_conf)
-                    #await self.receive(timeout=10) 
-                    #do something when receive confirmation from the drone that he received the orders ?
-    
+
+            acks = 0
+
+            for drone in self.agent.drones:
+
+                if drone not in self.agent.timeout_drones:
+
+                    msg          = Message(to=str(drone))
+                    msg.body     = "ORDER_READY"
+                    acks         += 1
+
+            while acks:
+
+                msg = await self.receive(timeout=3)
+                if msg is None:
+                    acks -= 1
+                    continue
+
+                match msg.body:
+
+                    case "OK":        
+                        self.assign_order(msg.sender)
+                        acks -= 1
+
+                    case "NO":        
+                        self.timeout_drone(msg.sender)
+                        acks -= 1
+
+                    case "BATCH":     self.receive_batch(msg.metadata)
+                    case "DELIVERED": self.to_fulfill.remove(msg.metadata)
+            
+            if self.agent.timer - time.time() > 10:
+
+                self.agent.timer = time.time()
+                self.reset_orders()
+                self.agent.timeout_drones.clear()
+            
     async def setup(self):
         print(f"Center starting at {self.position}")
         self.add_behaviour(self.AssignOrdersBehav())                
