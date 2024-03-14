@@ -1,49 +1,41 @@
 import asyncio
 import spade
-from spade import wait_until_finished
-from spade.agent import Agent
-from spade.message import Message
-from spade.behaviour import CyclicBehaviour
-
-class DummyAgent(Agent):
-    class MyBehav(CyclicBehaviour):
-        async def on_start(self):
-            print("Starting behaviour . . .")
-            self.counter = 0
-
-        async def on_message(self, msg):
-        # Handle incoming message
-            print("Message received: {}".format(msg.body))
-            await self.send(msg.sender, "Hi! I received your message.")
-            
-        async def run(self):
-            print("Counter: {}".format(self.counter))
-            self.counter += 1
-            print("InformBehav running")
-            msg = Message(to=str(self.agent.jid))  # Instantiate the message
-            msg.set_metadata(
-                "performative", "inform"
-            )  # Set the "inform" FIPA performative
-            msg.body = "Hello World {}".format(
-                self.agent.jid
-            )  # Set the message content
-
-            await self.send(msg)
-            print("Message sent!")
-            await asyncio.sleep(1)
-
-    async def setup(self):
-        print("Agent starting . . .")
-        b = self.MyBehav()
-        self.add_behaviour(b)
-
+from drone import  DroneAgent
+from center import Center
+from ambient import Ambient
+from supplier import Supplier
 async def main():
-    dummy = DummyAgent("dummyagent@localhost", "password")
-    await dummy.start()
-    print("DummyAgent started. Check its console to see the output.")
 
-    print("Wait until user interrupts with ctrl+C")
-    await wait_until_finished(dummy)
+
+    first_drone  = DroneAgent("drone1@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
+    second_drone = DroneAgent("drone2@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
+
+    center       = Center("center@localhost", "pass", "orders", "pos")
+    ambient      = Ambient("ambient@localhost", "pass", set(first_drone.jid, second_drone.jid))
+    supplier     = Supplier("supplier@localhost", "pass", set(center.jid))
+
+    await center.start()
+    await ambient.start()
+    await supplier.start()
+    
+    print("Center started")
+    print("Ambient started")
+    print("Supplier started")
+
+    
+
+
+    center.add_drone(first_drone.jid)
+    center.add_drone(second_drone.jid)
+
+
+    await first_drone.start()
+    await second_drone.start()
+
+    print("Drones started")
+
+
+
 
 if __name__ == "__main__":
     spade.run(main())
