@@ -27,9 +27,15 @@ class Begin(State):
             self.set_next_state(NO_BATTERY)
             return
     
-        msg = await self.receive(timeout=0) #waits for a confirmation from the center that he will receive orders
+        msg = await self.receive(timeout=0) # waits for a confirmation from the center that he will receive orders
+        
         if msg.body == "ORDER_READY":
-            self.set_next_state(DELIVERING)
+            ans       = Message(to=str(msg.sender))
+            ans.body  = "OK"
+            await self.send(ans)        
+        
+        if msg.body == "RECEIVE_ORDER":
+            self.set_next_state(RETURNING_CENTER)
         else:
             await self.agent.stop()
 
@@ -42,11 +48,7 @@ class Delivering(State):
             #implement logic for delivering
             #drone going to the points of the orders, and when reaching, the order is deleted from the attribute, until the attribute has 0 orders
             self.agent.orders.pop(0)
-        #implement logic for delivering
-        #drone going to the points of the orders, and when reaching, the order is deleted from the attribute, until the attribute has 0 orders        
-        if len(self.agent.orders) == 0:
-            self.set_next_state(BEGIN)                   
-
+            self.set_next_state(BEGIN)
 
 class ReturningCenter(State):
     async def run(self):

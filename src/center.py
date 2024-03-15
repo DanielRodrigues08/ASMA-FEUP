@@ -30,6 +30,7 @@ class Center(Agent):
         self.timeout_drones.add(drone_jid)
 
     def assign_order(self, drone_jid):
+
         order        = heapq.heappop(self.orders)
         msg          = Message(to=str(drone_jid))
         msg.body     = "ORDER"
@@ -42,6 +43,7 @@ class Center(Agent):
             heapq.heappush(self.orders, metadata[order])
     
     class AssignOrdersBehav(CyclicBehaviour):
+
         async def on_start(self):
             print(f"Center starts working")
             
@@ -60,7 +62,10 @@ class Center(Agent):
                     msg          = Message(to=str(drone))
                     msg.body     = "ORDER_READY"
                     acks         += 1
+                    await self.send(msg)
 
+
+            available_drones = set()
             while acks:
 
                 msg = await self.receive(timeout=3)
@@ -70,8 +75,8 @@ class Center(Agent):
 
                 match msg.body:
 
-                    case "OK":        
-                        self.assign_order(msg.sender)
+                    case "OK":   
+                        available_drones.add(msg.sender)
                         acks -= 1
 
                     case "NO":        
@@ -81,6 +86,8 @@ class Center(Agent):
                     case "BATCH":     self.receive_batch(msg.metadata)
                     case "DELIVERED": self.to_fulfill.remove(msg.metadata)
             
+            self.assign_orders(available_drones)
+
             if self.agent.timer - time.time() > 10:
 
                 self.agent.timer = time.time()
