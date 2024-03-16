@@ -10,8 +10,8 @@ from spade.message import Message
 class Center(Agent):
     def __init__(self, jid, password, orders, position, drones = set()):
         super().__init__(jid, password)
-        
-        self.orders         = heapq.heapify(orders)
+        heapq.heapify(orders)
+        self.orders         = orders
         self.position       = position 
         self.drones         = drones
         self.to_fulfill     = set()
@@ -20,7 +20,7 @@ class Center(Agent):
 
     
     def add_drone(self, drone_jid):
-        self.drones.append(drone_jid)
+        self.drones.add(drone_jid)
 
     def reset_orders(self):
         for order in self.to_fulfill:
@@ -29,21 +29,20 @@ class Center(Agent):
     def timeout_drone(self, drone_jid):
         self.timeout_drones.add(drone_jid)
 
-    def assign_order(self, drone_jid):
-
+    async def assign_order(self, drone_jid):
         order        = heapq.heappop(self.orders)
         msg          = Message(to=str(drone_jid))
         msg.body     = "ORDER"
         msg.metadata = order
-        self.to_fulfill.add(order.id)
-        self.send(msg)
+        self.to_fulfill.add(order[0])
+        #self.send(msg) it is not possible to send msg like this, we need an alternative
+        await self.send(msg)
         
     def receive_batch(self, metadata):
         for order in metadata:
             heapq.heappush(self.orders, metadata[order])
     
     class AssignOrdersBehav(CyclicBehaviour):
-
         async def on_start(self):
             print(f"Center starts working")
             
@@ -86,7 +85,7 @@ class Center(Agent):
                     case "BATCH":     self.receive_batch(msg.metadata)
                     case "DELIVERED": self.to_fulfill.remove(msg.metadata)
             
-            self.assign_orders(available_drones)
+            self.agent.assign_order(available_drones)
 
             if self.agent.timer - time.time() > 10:
 

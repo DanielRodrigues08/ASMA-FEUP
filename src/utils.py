@@ -26,14 +26,5 @@ def xsl_orders_to_system(xsl):
             continue 
         if start_saving:
             orders.append(current_row)
-    return orders
-
-def xsl_drones_to_system(xsl):
-    df = pd.read_excel(xsl, header = None)
-    drones = []
-    for i in range(len(df)):
-        if pd.isnull(df.iloc[i, 0]):
-            break
-        drones.append(df.iloc[i].values.tolist())
-    return drones        
+    return orders     
          
