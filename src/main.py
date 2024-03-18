@@ -1,17 +1,26 @@
 import asyncio
 import spade
+import os
 from drone import  DroneAgent
 from center import Center
 from ambient import Ambient
 from supplier import Supplier
-from utils import xsl_orders_to_system, xsl_centers_to_system
+from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system
 
-FILE = "../Delivery_data.xlsx"
+CENTERS_DIR = "../centers/"
+DRONES_DIR = "../drones/"
 
 async def main():
-    center_data = xsl_centers_to_system(FILE)
-    orders_data = xsl_orders_to_system(FILE)
-
+    center_data = []
+    orders_data = []
+    drones_data = []
+    for filename in os.listdir(CENTERS_DIR):
+        center_data = center_data + [csv_centers_to_system(CENTERS_DIR+filename)]
+        orders_data = orders_data + [csv_orders_to_system(CENTERS_DIR+filename)]
+    for filename in os.listdir(DRONES_DIR):
+        drones_data = csv_drones_to_system(DRONES_DIR+filename)
+        
+    #NOT DEALED YET    
     center       = Center(center_data[0][0]+"@localhost", "pass", orders_data, center_data[0][-2:])
     first_drone  = DroneAgent("drone1@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
     second_drone = DroneAgent("drone2@localhost", "pass", "pos", 100, 100, 100, 100, center.jid)
