@@ -8,7 +8,6 @@ def msg_orders_to_list(msg):
 
 def csv_centers_to_system(csv):
     df = pd.read_csv(csv, sep=';')
-    print(df)
     df['latitude'] = df['latitude'].str.replace(',', '.')
     df['longitude'] = df['longitude'].str.replace(',', '.')  
     df['latitude'] = df['latitude'].astype(float)
@@ -43,7 +42,7 @@ def csv_drones_to_system(csv):
         
 
 def main():
-    res = csv_drones_to_system("../delivery_drones.csv")    
+    res = csv_centers_to_system("../centers/delivery_center1.csv")    
     print(res)
     
 if __name__ == "__main__":
