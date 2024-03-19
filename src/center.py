@@ -1,100 +1,45 @@
-import spade
-import heapq
 import time
-
+import json
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
+from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
+import random
+
+MAX_BATCH_SIZE = 10
 
 
 class Center(Agent):
-    def __init__(self, jid, password, orders, position, drones = set()):
+
+    def __init__(self, jid, password, orders, coordinator):
         super().__init__(jid, password)
-        heapq.heapify(orders)
-        self.orders         = orders
-        self.position       = position 
-        self.drones         = drones
-        self.to_fulfill     = set()
-        self.timeout_drones = set()
-        self.timer          = time.time()
+        self.orders = orders
+        self.coordinator = coordinator
 
-    
-    def add_drone(self, drone_jid):
-        self.drones.add(drone_jid)
+    class InformBehav(PeriodicBehaviour):
 
-    def reset_orders(self):
-        for order in self.to_fulfill:
-            heapq.heappush(self.orders, order)
-
-    def timeout_drone(self, drone_jid):
-        self.timeout_drones.add(drone_jid)
-
-    async def assign_order(self, drone_jid):
-        order        = heapq.heappop(self.orders)
-        msg          = Message(to=str(drone_jid))
-        msg.body     = "ORDER"
-        msg.metadata = order
-        self.to_fulfill.add(order[0])
-        #self.send(msg) it is not possible to send msg like this, we need an alternative
-        await self.send(msg)
-        
-    def receive_batch(self, metadata):
-        for order in metadata:
-            heapq.heappush(self.orders, metadata[order])
-    
-    class AssignOrdersBehav(CyclicBehaviour):
-        async def on_start(self):
-            print(f"Center starts working")
-            
-        async def on_end(self):
-            print(f"Center finished working")
-            await self.agent.stop() 
-            
         async def run(self):
 
-            acks = 0
+            if len(self.agent.orders) == 0:
+                print("No orders to send")
+                self.agent.stop()
 
-            for drone in self.agent.drones:
+            msg = Message(to=self.agent.coordinator)
 
-                if drone not in self.agent.timeout_drones:
+            i = random.randint(1, min(len(self.agent.orders), MAX_BATCH_SIZE))
+            orders = self.agent.orders[-i:]
+            self.agent.orders = self.agent.orders[:-i]
 
-                    msg          = Message(to=str(drone))
-                    msg.body     = "ORDER_READY"
-                    acks         += 1
-                    await self.send(msg)
+            msg.body = json.dumps(orders)
+            msg.set_metadata("performative", "inform")
+            await self.send(msg)
 
+        async def on_end(self):
+            await self.agent.stop()
 
-            available_drones = set()
-            while acks:
+        async def on_start(self):
+            self.counter = 0
 
-                msg = await self.receive(timeout=3)
-                if msg is None:
-                    acks -= 1
-                    continue
-
-                match msg.body:
-
-                    case "OK":   
-                        available_drones.add(msg.sender)
-                        acks -= 1
-
-                    case "NO":        
-                        self.timeout_drone(msg.sender)
-                        acks -= 1
-
-                    case "BATCH":     self.receive_batch(msg.metadata)
-                    case "DELIVERED": self.to_fulfill.remove(msg.metadata)
-            
-            self.agent.assign_order(available_drones)
-
-            if self.agent.timer - time.time() > 10:
-
-                self.agent.timer = time.time()
-                self.reset_orders()
-                self.agent.timeout_drones.clear()
-            
     async def setup(self):
-        print(f"Center starting at {self.position}")
-        self.add_behaviour(self.AssignOrdersBehav())                
-                    
-              
+        print(f"Supplier started at {time.time()}")
+        b = self.InformBehav(period=10, start_at=time.time() + 5)
+        self.add_behaviour(b)
