@@ -10,8 +10,9 @@ MAX_BATCH_SIZE = 10
 
 class Center(Agent):
 
-    def __init__(self, jid, password, orders, coordinator):
+    def __init__(self, jid, password, position, orders, coordinator):
         super().__init__(jid, password)
+        self.position = position
         self.orders = orders
         self.coordinator = coordinator
 
@@ -26,12 +27,13 @@ class Center(Agent):
             msg = Message(to=self.agent.coordinator)
 
             i = random.randint(1, min(len(self.agent.orders), MAX_BATCH_SIZE))
-            orders = self.agent.orders[-i:]
-            self.agent.orders = self.agent.orders[:-i]
-
-            msg.body = json.dumps(orders)
+            
+            orders = [{"id": o[0], "d_lat": o[1], "d_long": o[2], "o_lat": self.agent.position[0], "o_long": self.agent.position[1], "weight": o[3]} for o in self.agent.orders[-i:]]
+            msg.body = json.dumps({"orders": orders})
             msg.set_metadata("performative", "inform")
+
             await self.send(msg)
+            self.agent.orders = self.agent.orders[:-i]
 
         async def on_end(self):
             await self.agent.stop()

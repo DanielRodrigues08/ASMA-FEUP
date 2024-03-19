@@ -1,4 +1,4 @@
-import spade
+import json
 import heapq
 import time
 
@@ -8,24 +8,14 @@ from spade.message import Message
 
 
 class Coordinator(Agent):
-    def __init__(self, jid, password, position, drones=set()):
+    def __init__(self, jid, password):
         super().__init__(jid, password)
-        heapq.heapify(orders)
-        self.position = position
-        self.drones = drones
-        self.to_fulfill = set()
-        self.timeout_drones = set()
-        self.timer = time.time()
+
+        self.drones = set()
+        self.orders = heapq.heapify()
 
     def add_drone(self, drone_jid):
         self.drones.add(drone_jid)
-
-    def reset_orders(self):
-        for order in self.to_fulfill:
-            heapq.heappush(self.orders, order)
-
-    def timeout_drone(self, drone_jid):
-        self.timeout_drones.add(drone_jid)
 
     async def assign_order(self, drone_jid):
         order = heapq.heappop(self.orders)
@@ -36,9 +26,10 @@ class Coordinator(Agent):
         # self.send(msg) it is not possible to send msg like this, we need an alternative
         await self.send(msg)
 
-    def receive_batch(self, metadata):
-        for order in metadata:
-            heapq.heappush(self.orders, metadata[order])
+    def receive_batch(self, body):
+        body_json = json.loads(body)
+        for order in body_json.get("orders"):
+            heapq.heappush(self.orders, order)
 
     class AssignOrdersBehav(CyclicBehaviour):
         async def on_start(self):
