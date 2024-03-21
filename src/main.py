@@ -16,6 +16,7 @@ async def main():
     orders_data = []
     drones_data = []
 
+
     for filename in os.listdir(CENTERS_DIR):
         center_data = center_data + [csv_centers_to_system(CENTERS_DIR + filename)]
         orders_data = orders_data + [csv_orders_to_system(CENTERS_DIR + filename)]

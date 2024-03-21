@@ -27,7 +27,6 @@ class Center(Agent):
             msg = Message(to=str(self.agent.coord_jid))
 
             i = int(random.randint(1, min(len(self.agent.orders), MAX_BATCH_SIZE)))
-            o = self.agent.orders[-i]
             orders = [{"id": (o[0]), "d_lat": float(o[1]), "d_long": float(o[2]), "o_lat": float(self.agent.position[0]), "o_long": float(self.agent.position[1]), "weight": float(o[3])} for o in self.agent.orders[-i:]]            
             msg.body = json.dumps({"orders": orders})
             msg.set_metadata("performative", "inform")
@@ -48,5 +47,3 @@ class Center(Agent):
 
         b = self.SendBehav(period=10, start_at=start_date)
         self.add_behaviour(b)
-        print("HEEEE")
-

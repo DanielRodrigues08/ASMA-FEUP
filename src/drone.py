@@ -22,25 +22,40 @@ class StateBehaviour(FSMBehaviour):
 
 class Begin(State):
     async def run(self):
+        try:
+            if self.agent.battery == 0:
+                self.set_next_state(NO_BATTERY)
+                return
 
-        if self.agent.battery == 0:
-            self.set_next_state(NO_BATTERY)
-            return
+            msg = await self.receive(
+                timeout=0
+            )
 
-        msg = await self.receive(
-            timeout=0
-        )  # waits for a confirmation from the center that he will receive orders
+            if msg == None:
+                self.set_next_state(BEGIN)
+                return
+            if "Incident" in msg.body:
+                self.set_next_state(BEGIN)
+                return
+            if msg.body == "ORDER_READY":
+                ans      = Message(to=str(msg.sender))
+                ans.body = "OK"
+                await self.send(ans)
 
-        if msg.body == "ORDER_READY":
-            ans = Message(to=str(msg.sender))
-            ans.body = "OK"
-            await self.send(ans)
-
-        if msg.body == "RECEIVE_ORDER":
-            self.set_next_state(RETURNING_CENTER)
-        else:
-            await self.agent.stop()
-
+            if msg.body == "RECEIVE_ORDER":
+                self.set_next_state(RETURNING_CENTER)
+            else:
+                self.set_next_state(BEGIN)
+                return
+        except Exception as e:
+            # Print the extended version of the error
+            print(f"An error occurred: {e.__class__.__name__} - {e}")
+            print(f"Exception arguments: {e.args}")
+            if e.__cause__:
+                print(f"Caused by: {e.__cause__}")
+            if e.__context__:
+                print(f"Context: {e.__context__}")
+        
 
 class Delivering(State):
 
@@ -85,17 +100,17 @@ class DroneAgent(Agent):
 
         super().__init__(jid, password)
 
-        self.orders = [] if orders is None else orders
+        self.orders   = [] if orders is None else orders
         self.position = position  # initial position of the center
-        self.battery = (
+        self.battery  = (
             battery  # percentage calculated with the autonomy and distance traveled (?)
         )
-        self.autonomy = autonomy  # on the csv
-        self.velocity = velocity  # on the csv
+        self.autonomy     = autonomy  # on the csv
+        self.velocity     = velocity  # on the csv
         self.max_capacity = max_capacity  # on the csv
-        self.timer = datetime.datetime.now()
+        self.timer        = datetime.datetime.now()
 
-        self.target = None
+        self.target    = None
         self.coord_jid = coord_jid
 
     class UpdatePosition(CyclicBehaviour):
@@ -110,23 +125,27 @@ class DroneAgent(Agent):
 
             if self.agent.target:
 
-                delta = datetime.datetime.now() - self.agent.timer
-                vector = self.agent.target - self.agent.position
-                direction = vector.normalize()
-                offset = delta * self.agent.velocity * direction
+                delta     = datetime.datetime.now() - self.agent.timer
+                vector    = self.agent.target - self.agent.position
+                offset    = delta * self.agent.velocity * vector.normalize()
+
                 self.agent.position += offset
 
     async def setup(self):
 
-        drone = StateBehaviour()
+        s_machine = StateBehaviour()
+        cyclic    = self.UpdatePosition()
 
-        drone.add_state(name=BEGIN, state=Begin(), initial=True)
-        drone.add_state(name=DELIVERING, state=Delivering())
-        drone.add_state(name=RETURNING_CENTER, state=ReturningCenter())
-        drone.add_state(name=NO_BATTERY, state=NoBattery())
-        drone.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
-        drone.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
-        self.add_behaviour(drone)
-        self.add_behaviour(self.UpdatePosition())
+
+        s_machine.add_state(name=BEGIN, state=Begin(), initial=True)
+        s_machine.add_state(name=DELIVERING, state=Delivering())
+        s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
+        s_machine.add_state(name=NO_BATTERY, state=NoBattery())
+        s_machine.add_transition(source=BEGIN, dest=BEGIN)
+        s_machine.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
+        s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
+
+        self.add_behaviour(cyclic)
+        self.add_behaviour(s_machine)
 
 

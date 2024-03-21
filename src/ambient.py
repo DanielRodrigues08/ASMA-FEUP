@@ -22,11 +22,14 @@ class Ambient(Agent):
             print(f"Ambient Warning Incoming at {datetime.datetime.now()}: {self.counter}")
 
             for drone in self.agent.drones:
+
                 msg          = Message(to=str(drone))
-                msg.body     = "INCIDENT"
                 indx         = random.randint(0, len(self.agent.incidents)-1)
-                msg.metadata = {"type": self.agent.incidents[indx]}
+                msg.body     = self.agent.incidents[indx]
+                msg.set_metadata("performative", "inform")
+
                 await self.send(msg)
+
                 print(f"Incident sent to {drone}")
 
         async def on_end(self):
