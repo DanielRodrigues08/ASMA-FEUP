@@ -22,16 +22,16 @@ class Center(Agent):
 
             if len(self.agent.orders) == 0:
                 print("No orders to send")
-                self.agent.stop()
+                return
             
-            msg = Message(to=str(self.agent.coord_jid))
-
-            i = int(random.randint(1, min(len(self.agent.orders), MAX_BATCH_SIZE)))
-            orders = [{"id": (o[0]), "d_lat": float(o[1]), "d_long": float(o[2]), "o_lat": float(self.agent.position[0]), "o_long": float(self.agent.position[1]), "weight": float(o[3])} for o in self.agent.orders[-i:]]            
-            msg.body = json.dumps({"orders": orders})
-            msg.set_metadata("performative", "inform")
+            msg               = Message(to=str(self.agent.coord_jid))
+            i                 = int(random.randint(1, min(len(self.agent.orders), MAX_BATCH_SIZE)))
+            orders            = [{"id": (o[0]), "d_lat": float(o[1]), "d_long": float(o[2]), "o_lat": float(self.agent.position[0]),
+                                   "o_long": float(self.agent.position[1]), "weight": float(o[3])} for o in self.agent.orders[:-i]]            
+            msg.body          = json.dumps({"type": "NEW_ORDERS", "orders": orders})
             self.agent.orders = self.agent.orders[:-i]
 
+            msg.set_metadata("performative", "inform")
             await self.send(msg)
 
         async def on_end(self):
@@ -42,8 +42,6 @@ class Center(Agent):
 
     async def setup(self):
         print(f"Center starting at {self.position}")
-
         start_date = datetime.datetime.now()
-
-        b = self.SendBehav(period=10, start_at=start_date)
+        b = self.SendBehav(period=1, start_at=start_date)
         self.add_behaviour(b)

@@ -1,14 +1,15 @@
 import spade
+import json
 from spade.agent import Agent
 from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
 from utils import msg_orders_to_list
 import datetime
 
-BEGIN = "BEGIN"
-DELIVERING = "DELIVERING"
+BEGIN            = "BEGIN"
+DELIVERING       = "DELIVERING"
 RETURNING_CENTER = "RETURNING_CENTER"
-NO_BATTERY = "NO_BATTERY"
+NO_BATTERY       = "NO_BATTERY"
 
 
 class StateBehaviour(FSMBehaviour):
@@ -22,40 +23,33 @@ class StateBehaviour(FSMBehaviour):
 
 class Begin(State):
     async def run(self):
-        try:
-            if self.agent.battery == 0:
-                self.set_next_state(NO_BATTERY)
-                return
 
-            msg = await self.receive(
-                timeout=0
-            )
+        if self.agent.battery == 0:
+            self.set_next_state(NO_BATTERY)
+            return
 
-            if msg == None:
-                self.set_next_state(BEGIN)
-                return
-            if "Incident" in msg.body:
-                self.set_next_state(BEGIN)
-                return
-            if msg.body == "ORDER_READY":
+        msg = await self.receive(timeout=0)
+        
+        if msg is None:
+            self.set_next_state(BEGIN)
+            return
+        
+        payload = json.loads(msg.body)
+
+        match payload["type"]:
+
+            case "ORDERS_READY":
+
+                print(f"Drone received orders from coordinator")
                 ans      = Message(to=str(msg.sender))
-                ans.body = "OK"
+                ans.body = json.dumps({"type": "BID", "payload": self.agent.calculate_orders_utility(payload["orders"])})
+                ans.set_metadata("performative", "propose")
+
                 await self.send(ans)
 
-            if msg.body == "RECEIVE_ORDER":
-                self.set_next_state(RETURNING_CENTER)
-            else:
-                self.set_next_state(BEGIN)
-                return
-        except Exception as e:
-            # Print the extended version of the error
-            print(f"An error occurred: {e.__class__.__name__} - {e}")
-            print(f"Exception arguments: {e.args}")
-            if e.__cause__:
-                print(f"Caused by: {e.__cause__}")
-            if e.__context__:
-                print(f"Context: {e.__context__}")
-        
+            case "RECEIVE_ORDER": self.set_next_state(RETURNING_CENTER)
+            case "INCIDENT"     : self.set_next_state(BEGIN)
+        return
 
 class Delivering(State):
 
@@ -131,6 +125,14 @@ class DroneAgent(Agent):
 
                 self.agent.position += offset
 
+
+    def calculate_orders_utility(self, orders):
+        return []
+        
+    def utility(self, position):
+        return 0
+    
+    
     async def setup(self):
 
         s_machine = StateBehaviour()

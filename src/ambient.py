@@ -1,6 +1,6 @@
 import datetime
 import getpass
-
+import json
 import spade
 from spade.agent import Agent
 from spade.behaviour import PeriodicBehaviour
@@ -25,7 +25,7 @@ class Ambient(Agent):
 
                 msg          = Message(to=str(drone))
                 indx         = random.randint(0, len(self.agent.incidents)-1)
-                msg.body     = self.agent.incidents[indx]
+                msg.body     = json.dumps({'type': self.agent.incidents[indx], 'degree': '2'})
                 msg.set_metadata("performative", "inform")
 
                 await self.send(msg)
@@ -40,7 +40,8 @@ class Ambient(Agent):
             self.counter = 0
 
     async def setup(self):
+
         print(f"Ambient started at {datetime.datetime.now()}")
         start_date = datetime.datetime.now()
-        b = self.InformBehav(period=6, start_at=start_date)
+        b = self.InformBehav(period=10, start_at=start_date)
         self.add_behaviour(b)

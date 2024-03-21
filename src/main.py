@@ -24,17 +24,12 @@ async def main():
         drones_data = csv_drones_to_system(DRONES_DIR + filename)
 
 
-    coordinator = Coordinator("coordinator@localhost", "coordinator")
-    center1 = Center("center1@localhost", "center1", (center_data[0][1], center_data[0][2]), orders_data[0], coordinator.jid)
-    first_drone = DroneAgent(
-        "drone1@localhost", "drone1", "pos", 100, 100, 100, 100, coordinator.jid
-    )
-    second_drone = DroneAgent(
-        "drone2@localhost", "drone2", "pos", 100, 100, 100, 100, coordinator.jid
-    )
-    ambient = Ambient(
-        "ambient@localhost", "ambient", set((first_drone.jid, second_drone.jid))
-    )
+    coordinator  = Coordinator("coordinator@localhost", "coordinator")
+    center1      = Center("center1@localhost", "center1", (center_data[0][1], center_data[0][2]), orders_data[0], coordinator.jid)
+    first_drone  = DroneAgent("drone1@localhost", "drone1", "pos", 100, 100, 100, 100, coordinator.jid)
+    second_drone = DroneAgent("drone2@localhost", "drone2", "pos", 100, 100, 100, 100, coordinator.jid)
+    ambient      = Ambient("ambient@localhost", "ambient", set((first_drone.jid, second_drone.jid)))
+    
     await center1.start()
     await coordinator.start()
     await ambient.start()
