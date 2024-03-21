@@ -1,9 +1,9 @@
 import spade
 from spade.agent import Agent
-from spade.behaviour import FSMBehaviour, State
+from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
 from utils import msg_orders_to_list
-import time
+import datetime
 
 BEGIN = "BEGIN"
 DELIVERING = "DELIVERING"
@@ -79,7 +79,7 @@ class DroneAgent(Agent):
         autonomy,
         velocity,
         max_capacity,
-        center_jid,
+        coord_jid,
         orders=None,
     ):
 
@@ -93,8 +93,10 @@ class DroneAgent(Agent):
         self.autonomy = autonomy  # on the csv
         self.velocity = velocity  # on the csv
         self.max_capacity = max_capacity  # on the csv
-        self.timer = time.time()
+        self.timer = datetime.datetime.now()
+
         self.target = None
+        self.coord_jid = coord_jid
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
@@ -108,16 +110,16 @@ class DroneAgent(Agent):
 
             if self.agent.target:
 
-                delta = time.time() - self.agent.timer
+                delta = datetime.datetime.now() - self.agent.timer
                 vector = self.agent.target - self.agent.position
                 direction = vector.normalize()
                 offset = delta * self.agent.velocity * direction
-
                 self.agent.position += offset
 
     async def setup(self):
 
         drone = StateBehaviour()
+
         drone.add_state(name=BEGIN, state=Begin(), initial=True)
         drone.add_state(name=DELIVERING, state=Delivering())
         drone.add_state(name=RETURNING_CENTER, state=ReturningCenter())
@@ -125,3 +127,6 @@ class DroneAgent(Agent):
         drone.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
         drone.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
         self.add_behaviour(drone)
+        self.add_behaviour(self.UpdatePosition())
+
+

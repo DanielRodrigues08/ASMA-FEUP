@@ -1,4 +1,4 @@
-import time
+import datetime
 import getpass
 
 import spade
@@ -19,7 +19,7 @@ class Ambient(Agent):
         
         async def run(self):
 
-            print(f"Ambient Warning Incoming at {time.time()}: {self.counter}")
+            print(f"Ambient Warning Incoming at {datetime.datetime.now()}: {self.counter}")
 
             for drone in self.agent.drones:
                 msg          = Message(to=str(drone))
@@ -37,7 +37,7 @@ class Ambient(Agent):
             self.counter = 0
 
     async def setup(self):
-        print(f"Ambient started at {time.time()}")
-        start_at = time.time() + 5
-        b = self.InformBehav(period=6, start_at=start_at)
+        print(f"Ambient started at {datetime.datetime.now()}")
+        start_date = datetime.datetime.now()
+        b = self.InformBehav(period=6, start_at=start_date)
         self.add_behaviour(b)
