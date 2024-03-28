@@ -3,7 +3,7 @@ import json
 from spade.agent import Agent
 from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
-from utils import msg_orders_to_list
+from utils import msg_orders_to_list, haversine_distance
 import datetime
 
 BEGIN            = "BEGIN"
@@ -125,14 +125,56 @@ class DroneAgent(Agent):
 
                 self.agent.position += offset
 
-
+    #calculate utility of orders individually
     def calculate_orders_utility(self, orders):
-        return []
+        orders_utility = {}
+        for order in orders:
+            orders_utility[order["id"]] = self.utility(order)
+        return orders_utility    
         
-    def utility(self, position):
-        return 0
+    def utility(self, order):
+        #distance from the drone position to the center position (to pickup order)
+        distance_1 = haversine_distance(self.position[0], self.position[1], order["d_lat"], order["d_long"])
+        
+        #distance from center to order target
+        distance_2 = haversine_distance(order["d_lat"], order["d_long"], order["o_lat"], order["o_long"])
+        
+        #total distance traveled
+        total_distance = distance_1 + distance_2
+        
+        #don't need to calculate capacity
+        if (total_distance > self.autonomy):
+            return 0
+        
+        utility_distance = self.autonomy - total_distance
+        
+        utility_capacity = self.max_capacity - order["weight"]
+        
+        utility_final_score = utility_distance + utility_capacity*2
+        
+        return utility_final_score
     
-    
+    #not sure about this (still a prototype)    
+    def greedy_combinations(self, orders):
+        orders.sort(key=lambda x: x["weight"])
+        
+        combinations = []
+        
+        for order in orders:
+            new_orders = self.orders + [order]
+            total_weight = sum([order["weight"] for order in new_orders])
+            if (total_weight <= self.max_capacity):
+                new_utility = sum(self.utility(order) for order in new_orders)
+                old_utility = sum(self.utility(order) for order in self.orders)
+                if (new_utility < old_utility):
+                    new_orders.pop()
+            else:      
+                combinations.append(new_orders)
+                new_orders = []
+        
+        return combinations           
+        
+        
     async def setup(self):
 
         s_machine = StateBehaviour()

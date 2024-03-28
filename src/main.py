@@ -30,9 +30,9 @@ async def main():
     second_drone = DroneAgent("drone2@localhost", "drone2", "pos", 100, 100, 100, 100, coordinator.jid)
     ambient      = Ambient("ambient@localhost", "ambient", set((first_drone.jid, second_drone.jid)))
     
-    await center1.start()
-    await coordinator.start()
-    await ambient.start()
+    await center1.start(auto_register=True)
+    await coordinator.start(auto_register=True)
+    await ambient.start(auto_register=True)
 
     print("Center started")
     print("Ambient started")
@@ -41,8 +41,8 @@ async def main():
     coordinator.add_drone(first_drone.jid)
     coordinator.add_drone(second_drone.jid)
 
-    await first_drone.start()
-    await second_drone.start()
+    await first_drone.start(auto_register=True)
+    await second_drone.start(auto_register=True)
 
     print("Drones started")
 
