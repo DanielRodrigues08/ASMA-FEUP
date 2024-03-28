@@ -150,11 +150,11 @@ class DroneAgent(Agent):
         
         utility_capacity = self.max_capacity - order["weight"]
         
-        utility_final_score = utility_distance + utility_capacity
+        utility_final_score = utility_distance + utility_capacity*2
         
         return utility_final_score
     
-    #not sure about this    
+    #not sure about this (still a prototype)    
     def greedy_combinations(self, orders):
         orders.sort(key=lambda x: x["weight"])
         
