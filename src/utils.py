@@ -2,6 +2,28 @@ import pandas as pd
 import numpy as np
 import re
 import math
+import datetime
+from spade.message import Message
+
+
+
+def delta(timer, seconds):
+    return timer > datetime.datetime.now() - seconds
+
+
+async def receive_msg(agent, jid, timeout):
+
+    timer = datetime.datetime.now()
+
+
+    # TODO: check template
+    
+    while delta(timer, timeout):
+         msg = await agent.receive(0)
+         if msg and msg.sender == jid:
+             return msg
+
+    return None
 
 def msg_orders_to_list(msg):
     orders = msg.body.split(" ")
