@@ -5,7 +5,6 @@ from spade.behaviour import PeriodicBehaviour
 from spade.message import Message
 from utils import receive_msg, delta
 import random
-import math
 
 TIMEOUT = 10
 
@@ -24,7 +23,7 @@ class Center(Agent):
         
         async def send_order(self):
 
-            if len(self.agent.orders) == 0 or math.round(random.random()):
+            if len(self.agent.orders) == 0 or round(random.random()):
                 print("Not sending order")
                 return
 
@@ -43,7 +42,7 @@ class Center(Agent):
             bids    = []
             counter = 0
 
-            while self.agent.timer > datetime.datetime.now() - TIMEOUT:
+            while self.agent.timer > datetime.datetime.now() - datetime.timedelta(seconds=TIMEOUT):
                 msg = await self.receive()
                 if msg:
                     bid = json.loads(msg.body)

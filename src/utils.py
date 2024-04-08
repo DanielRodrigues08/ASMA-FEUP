@@ -8,7 +8,7 @@ from spade.message import Message
 
 
 def delta(timer, seconds):
-    return timer > datetime.datetime.now() - seconds
+    return timer > datetime.datetime.now() - datetime.timedelta(seconds=seconds)
 
 
 async def receive_msg(agent, jid, timeout):
@@ -17,7 +17,7 @@ async def receive_msg(agent, jid, timeout):
 
 
     # TODO: check template
-    
+
     while delta(timer, timeout):
          msg = await agent.receive(0)
          if msg and msg.sender == jid:
