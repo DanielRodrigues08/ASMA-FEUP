@@ -8,7 +8,7 @@ from spade.message import Message
 
 
 def delta(timer, seconds):
-    return timer > datetime.datetime.now() - datetime.timedelta(seconds=seconds)
+    return timer < datetime.datetime.now() - datetime.timedelta(seconds=seconds)
 
 
 async def receive_msg(agent, jid, timeout):

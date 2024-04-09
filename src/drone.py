@@ -31,28 +31,33 @@ class Listen(State):
             self.set_next_state(NO_BATTERY)
             return
 
-        msg = await self.receive(timeout=0)
+        msg = await self.receive(timeout=5)
         
         if msg is None:
             self.set_next_state(LISTEN)
             return
         
         payload = json.loads(msg.body)
-
+        
         match payload["type"]:
 
             case "NEW_ORDER":
-
+                
                 print(f"Drone received orders from center")
                 ans      = Message(to=str(msg.sender))
-                ans.body = json.dumps({"type": "BID", "payload": self.agent.utility(payload["order"])})
+                ans.body = json.dumps({"type": "BID", "bid": 1})
                 ans.set_metadata("performative", "propose")
 
                 await self.send(ans)
 
                 self.agent.pending = (msg.sender, payload["order"])
                 self.set_next_state(WAITING_BID)
+                return
+        
+        self.set_next_state(LISTEN)
         return
+    
+
 
 
 class WaitingBid(State):
@@ -65,7 +70,7 @@ class WaitingBid(State):
         found         = False
 
 
-        while delta(self.timer, TIMEOUT) and not found:
+        while delta(self.agent.timer, TIMEOUT) and not found:
             msg = await self.receive(timeout=0)
             if msg.sender == center:
                 found = True
@@ -77,7 +82,7 @@ class WaitingBid(State):
         payload = json.loads(msg.body)
 
         if payload["type"] == "ACCEPT":
-            
+
             print(f"Drone received bid from center")
             self.agent.orders.append(order)
             await self.send(Message(to=center, body=json.dumps({"type": "OK"}), performative="inform"))
@@ -163,16 +168,11 @@ class DroneAgent(Agent):
 
         
     def utility(self, order):
-        #distance from the drone position to the center position (to pickup order)
         distance_1 = haversine_distance(self.position[0], self.position[1], order["d_lat"], order["d_long"])
-        
-        #distance from center to order target
         distance_2 = haversine_distance(order["d_lat"], order["d_long"], order["o_lat"], order["o_long"])
         
-        #total distance traveled
         total_distance = distance_1 + distance_2
         
-        #don't need to calculate capacity
         if (total_distance > self.autonomy):
             return 0
         
@@ -196,7 +196,10 @@ class DroneAgent(Agent):
         s_machine.add_state(name=DELIVERING, state=Delivering())
         s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
         s_machine.add_state(name=NO_BATTERY, state=NoBattery())
+
+        s_machine.add_transition(source=WAITING_BID, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
+        s_machine.add_transition(source=LISTEN, dest=WAITING_BID)
         s_machine.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
 

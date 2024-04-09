@@ -25,20 +25,20 @@ async def main():
 
     first_drone  = DroneAgent("drone1@localhost", "drone1", "pos", 100, 100, 100, 100)
     second_drone = DroneAgent("drone2@localhost", "drone2", "pos", 100, 100, 100, 100)
+
     ambient      = Ambient("ambient@localhost", "ambient", set([first_drone.jid, second_drone.jid]))
     center1      = Center("center1@localhost", "center1", (center_data[0][1], center_data[0][2]), orders_data[0],set([first_drone.jid, second_drone.jid]))
 
-    
+    await first_drone.start(auto_register=True)
+    await second_drone.start(auto_register=True)
+
+    await asyncio.sleep(5)
     await center1.start(auto_register=True)
     await ambient.start(auto_register=True)
 
     print("Center started")
     print("Ambient started")
     print("Supplier started")
-
-    await first_drone.start(auto_register=True)
-    await second_drone.start(auto_register=True)
-
     print("Drones started")
 
 
