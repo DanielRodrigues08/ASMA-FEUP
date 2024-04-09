@@ -63,6 +63,14 @@ def csv_drones_to_system(csv):
         drones.append(current_row)
     return drones
 
+def position_drones(drones, center):
+    for i in range(len(drones)):
+        for j in range(len(center)):
+            if drones[i][4] == center[j][0]:
+                drones[i][4] = (center[j][1],center[j][2])
+    return drones            
+            
+
 def haversine_distance(lat1, lon1, lat2, lon2):
     dLat = (lat2 - lat1) * math.pi / 180.0
     dLon = (lon2 - lon1) * math.pi / 180.0

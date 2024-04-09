@@ -38,6 +38,7 @@ class Listen(State):
             return
         
         payload = json.loads(msg.body)
+        print("payload", payload)
         
         match payload["type"]:
 
@@ -45,7 +46,9 @@ class Listen(State):
                 
                 print(f"Drone received orders from center")
                 ans      = Message(to=str(msg.sender))
-                ans.body = json.dumps({"type": "BID", "bid": 1})
+                bid = self.agent.utility(payload["order"])
+                print("BID", bid)
+                ans.body = json.dumps({"type": "BID", "bid": bid})
                 ans.set_metadata("performative", "propose")
 
                 await self.send(ans)
