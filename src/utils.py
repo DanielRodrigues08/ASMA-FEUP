@@ -44,6 +44,13 @@ def centers_to_dict(centers):
         centers_data.append(center_data)
     return centers_data
 
+def orders_to_dict(orders):
+    orders_data = []
+    for order in orders:
+        order_data = {'center': order[0][0], 'orders': order[1:]}
+        orders_data.append(order_data)
+    return orders_data
+
 def csv_orders_to_system(csv):
     df = pd.read_csv(csv, sep=';')
     orders = []
@@ -51,7 +58,7 @@ def csv_orders_to_system(csv):
     df['longitude'] = df['longitude'].str.replace(',', '.')  
     df['latitude'] = df['latitude'].astype(float)
     df['longitude'] = df['longitude'].astype(float)  
-    for i in range(1,len(df)):
+    for i in range(0,len(df)):
         current_row = df.iloc[i].values.tolist()
         orders.append(current_row)
     return orders   

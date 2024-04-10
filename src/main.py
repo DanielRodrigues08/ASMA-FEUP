@@ -4,29 +4,29 @@ import os
 from drone import DroneAgent
 from ambient import Ambient
 from center import Center
-from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict
+from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict, orders_to_dict
 
 CENTERS_DIR = "../data/centers/"
 DRONES_DIR = "../data/drones/"
 
 
 async def main():
-    center_data = []
+    centers_data = []
     orders_data = []
     drones_data = []
 
 
     for filename in os.listdir(CENTERS_DIR):
-        center_data = center_data + [csv_centers_to_system(CENTERS_DIR + filename)]
+        centers_data = centers_data + [csv_centers_to_system(CENTERS_DIR + filename)]
         orders_data = orders_data + [csv_orders_to_system(CENTERS_DIR + filename)]
 
 
     for filename in os.listdir(DRONES_DIR):
         drones_data = csv_drones_to_system(DRONES_DIR + filename)
 
-    center_data = centers_to_dict(center_data)
-    
-    drones_data = position_drones(drones_data, center_data)
+    centers_data = centers_to_dict(centers_data)
+    orders_data = orders_to_dict(orders_data)
+    drones_data = position_drones(drones_data, centers_data)
     drones      = []
 
     for drone_data in drones_data:
@@ -36,13 +36,20 @@ async def main():
     drones_jids  = set([x.jid for x in drones])
     ambient      = Ambient("ambient@localhost", "ambient", drones_jids)
     
-    center1      = Center(center_data[0]['id']+'@localhost', center_data[0]['id'], (center_data[0]['latitude'], center_data[0]['longitude']), orders_data[0], drones_jids)
+    centers = []
+    
+    for center_data in centers_data:
+        matching_order = [order for order in orders_data if order['center'] == center_data['id']][0]
+        print("TESTE",matching_order)
+        centers.append(Center(center_data['id'] + '@localhost', center_data['id'], (center_data['latitude'], center_data['longitude']), matching_order['orders'], drones_jids))
 
-    await center1.start(auto_register=True)
     await ambient.start(auto_register=True)
 
 
     await asyncio.sleep(2)
+
+    for center in centers:
+        await center.start(auto_register=True)
 
     for drone in drones:
         await drone.start(auto_register=True)
