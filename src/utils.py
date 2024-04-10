@@ -37,6 +37,13 @@ def csv_centers_to_system(csv):
     df['longitude'] = df['longitude'].astype(float)  
     return df.values[0].tolist()
 
+def centers_to_dict(centers):
+    centers_data = []
+    for center in centers:
+        center_data = {'id': center[0], 'latitude': center[1], 'longitude': center[2]}
+        centers_data.append(center_data)
+    return centers_data
+
 def csv_orders_to_system(csv):
     df = pd.read_csv(csv, sep=';')
     orders = []
@@ -74,8 +81,8 @@ def position_drones(drones, center):
         drone_data = {'id': drone[0], 'password': drone[0], 'capacity': drone[1], 'autonomy': drone[2], 'velocity': drone[3]}
 
         for j in range(len(center)):
-            if drone[4] == center[j][0]:
-                drone_data['position'] = (center[j][1],center[j][2])
+            if drone[4] == center[j]['id']:
+                drone_data['position'] = (center[j]['latitude'],center[j]['longitude'])
                 break
 
         drones_data.append(drone_data)
