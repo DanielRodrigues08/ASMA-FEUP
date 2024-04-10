@@ -179,20 +179,25 @@ class DroneAgent(Agent):
 
         
     def utility(self, order):
-        distance_1 = haversine_distance(self.position[0], self.position[1], order["d_lat"], order["d_long"])
-        distance_2 = haversine_distance(order["d_lat"], order["d_long"], order["o_lat"], order["o_long"])
+        distance_1 = haversine_distance(self.position[0], self.position[1], order["o_lat"], order["o_long"])
+        distance_2 = haversine_distance(order["o_lat"], order["o_long"], order["d_lat"], order["d_long"])
         
         total_distance = distance_1 + distance_2
         
         if (total_distance > self.autonomy):
-            return 0
+            return -1
         
         utility_distance = self.autonomy - total_distance
         
-        utility_capacity = self.max_capacity - order["weight"]
+        current_capacity = self.max_capacity
+        for order_assigned in self.orders:
+            current_capacity -= order_assigned["weight"]
+        
+        utility_capacity = current_capacity - order["weight"]
+        if (utility_capacity < 0):
+            return -1
         
         utility_final_score = utility_distance + utility_capacity*2
-        
         return utility_final_score        
         
         

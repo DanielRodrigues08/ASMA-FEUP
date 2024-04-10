@@ -4,6 +4,7 @@ from spade.agent import Agent
 from spade.behaviour import PeriodicBehaviour, State, FSMBehaviour
 from spade.message import Message
 from utils import receive_msg, delta
+import asyncio
 
 TIMEOUT = 10
 
@@ -83,11 +84,18 @@ class Auction(State):
             self.set_next_state(SEND_ORDER)
             return
 
+        self.agent.bids = sorted(self.agent.bids, key=lambda x: x["bid"], reverse=True)
         best_bid = self.agent.bids[0]
         self.agent.best_bid = best_bid
 
         if best_bid is None:
             return
+        
+        if best_bid["bid"] < 0:
+            print(f"No drones available")
+            self.set_next_state(SEND_ORDER)
+            return
+            
 
         drone_jid  =  str(best_bid["drone"])
         print("BEST-DRONE", drone_jid)
@@ -116,6 +124,7 @@ class WaitOk(State):
             if payload["type"] == "OK":
                 print("AAAHHH")
                 self.agent.orders.pop()
+                await asyncio.sleep(2) #esperar antes de publicar nova order
                 self.set_next_state(SEND_ORDER)
                 return
 
