@@ -19,27 +19,32 @@ async def main():
     for filename in os.listdir(CENTERS_DIR):
         center_data = center_data + [csv_centers_to_system(CENTERS_DIR + filename)]
         orders_data = orders_data + [csv_orders_to_system(CENTERS_DIR + filename)]
+
+
     for filename in os.listdir(DRONES_DIR):
         drones_data = csv_drones_to_system(DRONES_DIR + filename)
 
-    #for i in range(len(drones_data)):
-     #   drones_data[i][0] = DroneAgent(drones_data[i][0] + '@localhost', drones_data[i][0], "pos", drones_data[i][2], drones_data[i][2], drones_data[i][3], drones_data[i][4])
-
     drones_data = position_drones(drones_data, center_data)
-    
-    first_drone  = DroneAgent(drones_data[0][0]+ '@localhost', drones_data[0][0], drones_data[0][4], drones_data[0][2], drones_data[0][2], drones_data[0][3], drones_data[0][1])
-    second_drone = DroneAgent(drones_data[1][0]+ '@localhost', drones_data[1][0], drones_data[1][4], drones_data[1][2], drones_data[1][2], drones_data[1][3], drones_data[1][1])
-    
-    ambient      = Ambient("ambient@localhost", "ambient", set([first_drone.jid, second_drone.jid]))
-    center1      = Center(center_data[0][0]+'@localhost', center_data[0][0], (center_data[0][1], center_data[0][2]), orders_data[0],set([first_drone.jid, second_drone.jid]))
+    drones      = []
 
-    await first_drone.start(auto_register=True)
-    await second_drone.start(auto_register=True)
+    for drone_data in drones_data:
 
-    await asyncio.sleep(5)
+        drones.append(DroneAgent(drone_data['id'] + '@localhost', drone_data['password'], drone_data["position"], drone_data['autonomy'],  drone_data['autonomy'], drone_data['velocity'], drone_data['capacity']))
+    
+    drones_jids  = set([x.jid for x in drones])
+    ambient      = Ambient("ambient@localhost", "ambient", drones_jids)
+    center1      = Center(center_data[0][0]+'@localhost', center_data[0][0], (center_data[0][1], center_data[0][2]), orders_data[0], drones_jids)
+
     await center1.start(auto_register=True)
     await ambient.start(auto_register=True)
 
+
+    await asyncio.sleep(2)
+
+    for drone in drones:
+        await drone.start(auto_register=True)
+
+    
     print("Center started")
     print("Ambient started")
     print("Supplier started")

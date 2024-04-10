@@ -30,8 +30,6 @@ class Ambient(Agent):
 
                 await self.send(msg)
 
-                print(f"Incident sent to {drone}")
-
         async def on_end(self):
 
             await self.agent.stop()

@@ -1,5 +1,6 @@
 import spade
 import json
+import asyncio
 from spade.agent import Agent
 from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
@@ -10,7 +11,7 @@ LISTEN           = "LISTEN"
 DELIVERING       = "DELIVERING"
 RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY       = "NO_BATTERY"
-WAITING_BID      = "WAITING_BID"
+WAITING_ACCEPT      = "WAITING_ACCEPT"
 TIMEOUT          = 10
 
 
@@ -26,6 +27,8 @@ class StateBehaviour(FSMBehaviour):
 
 class Listen(State):
     async def run(self):
+        
+        self.agent.timer = datetime.datetime.now()
 
         if self.agent.battery == 0:
             self.set_next_state(NO_BATTERY)
@@ -38,23 +41,21 @@ class Listen(State):
             return
         
         payload = json.loads(msg.body)
-        print("payload", payload)
         
         match payload["type"]:
 
             case "NEW_ORDER":
                 
+                print(payload)
+
                 print(f"Drone received orders from center")
                 ans      = Message(to=str(msg.sender))
-                bid = self.agent.utility(payload["order"])
-                print("BID", bid)
+                bid      = self.agent.utility(payload["order"])
                 ans.body = json.dumps({"type": "BID", "bid": bid})
                 ans.set_metadata("performative", "propose")
-
                 await self.send(ans)
-
                 self.agent.pending = (msg.sender, payload["order"])
-                self.set_next_state(WAITING_BID)
+                self.set_next_state(WAITING_ACCEPT)
                 return
         
         self.set_next_state(LISTEN)
@@ -63,33 +64,40 @@ class Listen(State):
 
 
 
-class WaitingBid(State):
+class WaitingAccept(State):
 
     async def run(self):
 
-
         msg           = None
         center, order = self.agent.pending
-        found         = False
 
-
-        while delta(self.agent.timer, TIMEOUT) and not found:
-            msg = await self.receive(timeout=0)
-            if msg.sender == center:
-                found = True
-
-        if not found:
+        if delta(self.agent.timer, TIMEOUT):
+            print("here")
+            await asyncio.sleep(1)
             self.set_next_state(LISTEN)
             return
-
+        
+        msg = await self.receive(timeout=0)
+        if not msg or msg.sender != center:
+            self.set_next_state(WAITING_ACCEPT)
+            return
+        
         payload = json.loads(msg.body)
+        print(payload)
 
         if payload["type"] == "ACCEPT":
 
             print(f"Drone received bid from center")
             self.agent.orders.append(order)
-            await self.send(Message(to=center, body=json.dumps({"type": "OK"}), performative="inform"))
-    
+            print(order)
+            ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
+            ans.set_metadata("performative", "inform")
+            await self.send(ans)
+
+        if payload["type"] == "REJECT":
+            print(f"Drone received bid from center")
+        
+
         self.set_next_state(LISTEN)  
         return
 
@@ -195,14 +203,15 @@ class DroneAgent(Agent):
 
 
         s_machine.add_state(name=LISTEN, state=Listen(), initial=True)
-        s_machine.add_state(name=WAITING_BID, state=WaitingBid())
+        s_machine.add_state(name=WAITING_ACCEPT, state=WaitingAccept())
         s_machine.add_state(name=DELIVERING, state=Delivering())
         s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
         s_machine.add_state(name=NO_BATTERY, state=NoBattery())
 
-        s_machine.add_transition(source=WAITING_BID, dest=LISTEN)
+        s_machine.add_transition(source=WAITING_ACCEPT, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
-        s_machine.add_transition(source=LISTEN, dest=WAITING_BID)
+        s_machine.add_transition(source=LISTEN, dest=WAITING_ACCEPT)
+        s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
 
