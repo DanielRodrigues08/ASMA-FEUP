@@ -4,6 +4,7 @@ import os
 from drone import DroneAgent
 from ambient import Ambient
 from center import Center
+from support_bases import SupportBase
 from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict, orders_to_dict
 
 CENTERS_DIR = "../data/centers/"
@@ -45,7 +46,10 @@ async def main():
 
     await ambient.start(auto_register=True)
 
+    supp_base = SupportBase("support_base@localhost", "support_base", (0,0), drones_jids)
 
+    await supp_base.start(auto_register=True)
+    
     await asyncio.sleep(2)
 
     for center in centers:

@@ -12,6 +12,7 @@ DELIVERING       = "DELIVERING"
 RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY       = "NO_BATTERY"
 WAITING_ACCEPT      = "WAITING_ACCEPT"
+MEETING = "MEETING"
 TIMEOUT          = 10
 
 
@@ -40,6 +41,10 @@ class Listen(State):
             self.set_next_state(LISTEN)
             return
         
+        if msg is None and self.agent.target == self.agent.position and self.agent.meeting:
+            self.set_next_state(MEETING)
+            return
+        
         payload = json.loads(msg.body)
         
         match payload["type"]:
@@ -57,11 +62,25 @@ class Listen(State):
                 self.agent.pending = (msg.sender, payload["order"])
                 self.set_next_state(WAITING_ACCEPT)
                 return
+            
+            case "MEETING":
+                print(f"Drone received meeting msg from support base")
+                self.agent.target = payload["meeting_point"]
+                self.agent.meeting = True
+                self.set_next_state(LISTEN) #not sure if needed
+                return 
         
         self.set_next_state(LISTEN)
         return
-    
 
+
+class Meeting(State):    
+    async def run(self):
+        print(f"Drone is meeting with support base")
+        await asyncio.sleep(5)
+        self.agent.meeting = False
+        self.set_next_state(LISTEN)
+        return
 
 
 class WaitingAccept(State):
@@ -158,6 +177,7 @@ class DroneAgent(Agent):
         self.timer        = datetime.datetime.now()
 
         self.target    = None
+        self.meeting  = False
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
@@ -212,6 +232,7 @@ class DroneAgent(Agent):
         s_machine.add_state(name=DELIVERING, state=Delivering())
         s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
         s_machine.add_state(name=NO_BATTERY, state=NoBattery())
+        s_machine.add_state(name=MEETING, state=Meeting())
 
         s_machine.add_transition(source=WAITING_ACCEPT, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
@@ -219,6 +240,7 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
+        s_machine.add_transition(source=LISTEN, dest=MEETING)
 
         self.add_behaviour(cyclic)
         self.add_behaviour(s_machine)

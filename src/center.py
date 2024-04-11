@@ -124,7 +124,7 @@ class WaitOk(State):
             if payload["type"] == "OK":
                 print("AAAHHH")
                 self.agent.orders.pop()
-                await asyncio.sleep(2) #esperar antes de publicar nova order
+                await asyncio.sleep(5) #esperar antes de publicar nova order
                 self.set_next_state(SEND_ORDER)
                 return
 
