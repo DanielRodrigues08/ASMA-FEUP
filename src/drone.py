@@ -57,6 +57,12 @@ class Listen(State):
                 self.agent.pending = (msg.sender, payload["order"])
                 self.set_next_state(WAITING_ACCEPT)
                 return
+            
+            case "UPDATE_ORDERS":
+                print(f"Drone going to support base")
+                self.agent.target = payload["position"]
+                self.agent.current_base = msg.sender
+                self.set_next_state(LISTEN)
         
         self.set_next_state(LISTEN)
         return
@@ -132,6 +138,7 @@ class DroneAgent(Agent):
         autonomy,
         velocity,
         max_capacity,
+        support_bases=None,
         orders=None,
     ):
 
@@ -142,7 +149,7 @@ class DroneAgent(Agent):
         self.battery  = (
             battery 
         )
-
+        self.support_bases   = [] if support_bases is None else support_bases
         self.pending      = None
         self.autonomy     = autonomy  
         self.velocity     = velocity  
@@ -151,6 +158,7 @@ class DroneAgent(Agent):
         self.global_timer = datetime.datetime.now() 
         self.target       = None
         self.status       = False
+        self.current_base = None
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
@@ -171,6 +179,12 @@ class DroneAgent(Agent):
             else:
 
                 self.agent.target = None
+                
+        def check_collisions_supp_bases(self):
+            for base in self.agent.support_bases:
+                if haversine_distance(self.agent.position[0], self.agent.position[1], base.position[0], base.position[1]) < 10:
+                    return base
+            return None      
     
         async def run(self):
             
@@ -193,9 +207,21 @@ class DroneAgent(Agent):
                     if self.agent.delivering:
                         print("Order Delivered")
                         self.agent.orders.pop(0)
+                    else:
+                        print("Drone arrived at the support base")
+                        msg = Message(to=str(self.agent.current_base))
+                        msg.body = json.dumps({"type": "ARRIVED"})
+                        await self.send(msg)   
+                        self.agent.current_base = None  
 
                     self.agent.delivering = False
-                    self.agent.target     = None       
+                    self.agent.target     = None  
+                    
+                base_collision = self.check_collisions_supp_bases()
+                if base_collision != None:
+                    msg = Message(to=str(base_collision), body=json.dumps({"type": "PRESENCE"}))
+                    msg.set_metadata("performative", "inform")
+                    await self.send(msg)      
 
             else:
                
@@ -235,7 +261,6 @@ class DroneAgent(Agent):
     
         s_machine.add_state(name=LISTEN, state=Listen(), initial=True)
         s_machine.add_state(name=WAITING_ACCEPT, state=WaitingAccept())
-        s_machine.add_state(name=DELIVERING, state=Delivering())
         s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
         s_machine.add_state(name=NO_BATTERY, state=NoBattery())
 

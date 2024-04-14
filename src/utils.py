@@ -3,6 +3,7 @@ import numpy as np
 import re
 import math
 import datetime
+from itertools import permutations
 from spade.message import Message
 
 
@@ -92,7 +93,35 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     a = (pow(math.sin(dLat / 2), 2) +
          pow(math.sin(dLon / 2), 2) *
              math.cos(lat1) * math.cos(lat2))
-    
     rad = 6371
     c = 2 * math.asin(math.sqrt(a))
     return rad * c       
+
+def rearrange_orders_base(drone1, pending_orders_1, drone2, pending_orders_2):
+    pending_orders = pending_orders_1 + pending_orders_2
+    
+    all_combos = []
+    utility_drone_1 = []
+    utility_drone_2 = []
+    
+    for r in range(1, len(pending_orders)+1):
+        all_combos.extend([list(perm) for perm in permutations(pending_orders, r)])
+
+    #checkar melhores combos para drone 1
+    for combo in all_combos:
+        utility_1 = 0
+        utility_2 = 0
+        for element in combo:
+            utility_1 = utility_1 + drone1.utility(element) 
+            utility_2 = utility_2 + drone2.utility(element) 
+
+        utility_data_1 = (combo, utility_1)
+        utility_data_2 = (combo, utility_2)
+        
+        utility_drone_1.append(utility_data_1)
+        utility_drone_2.append(utility_data_2)
+        
+    utility_drone_1 = sorted(utility_drone_1, key=lambda x: x["utility"], reverse=True)
+    utility_drone_2 = sorted(utility_drone_2, key=lambda x: x["utility"], reverse=True)  
+    
+    return utility_drone_1, utility_drone_2
