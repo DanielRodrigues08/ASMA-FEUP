@@ -102,25 +102,17 @@ class WaitingAccept(State):
         return
 
 
-
-class Delivering(State):
-
-    async def run(self):
-        print(f"Drone delivering orders")
-        while len(self.agent.orders) > 0:
-            # implement logic for delivering
-            # drone going to the points of the orders, and when reaching, the order is deleted from the attribute, until the attribute has 0 orders
-            self.agent.orders.pop(0)
-            self.set_next_state(LISTEN)
-
-
 class ReturningCenter(State):
+
     async def run(self):
         print(f"Drone returning to the center")
-        # implement logic for returning to the center (point of the last order -> point of the center)
-        # after going to center replenish battery
-        self.agent.battery = self.agent.autonomy
+        center, _ = self.agent.pending
+
+        self.agent.target     = center
+        self.agent.delivering = False
+
         self.set_next_state(LISTEN)
+        return
 
 
 class NoBattery(State):
@@ -146,36 +138,70 @@ class DroneAgent(Agent):
         super().__init__(jid, password)
 
         self.orders   = [] if orders is None else orders
-        self.position = position  # initial position of the center
+        self.position = position  
         self.battery  = (
-            battery  # percentage calculated with the autonomy and distance traveled (?)
+            battery 
         )
 
         self.pending      = None
-        self.autonomy     = autonomy  # on the csv
-        self.velocity     = velocity  # on the csv
-        self.max_capacity = max_capacity  # on the csv
+        self.autonomy     = autonomy  
+        self.velocity     = velocity  
+        self.max_capacity = max_capacity  
         self.timer        = datetime.datetime.now()
-
-        self.target    = None
+        self.global_timer = datetime.datetime.now() 
+        self.target       = None
+        self.status       = False
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
             print(f"Drone starts working")
+            print(self.agent.position)
 
         async def on_end(self):
             print(f"Drone finished working")
             await self.agent.stop()
 
+
+        def find_target(self):
+
+            if self.agent.orders:
+                order                 = self.agent.orders[0]
+                self.agent.target     = order["d_lat"], order["d_long"]
+                self.agent.delivering = True
+            else:
+
+                self.agent.target = None
+    
         async def run(self):
-
+            
             if self.agent.target:
+                
+                delta    = (datetime.datetime.now() - self.agent.global_timer).total_seconds()
+                distance = haversine_distance(self.agent.position[0], self.agent.position[1],
+                                              self.agent.target[0], self.agent.target[1]) * 1000
+                
+                fraction = self.agent.velocity * delta / distance
 
-                delta     = datetime.datetime.now() - self.agent.timer
-                vector    = self.agent.target - self.agent.position
-                offset    = delta * self.agent.velocity * vector.normalize()
 
-                self.agent.position += offset
+                self.agent.position = (self.agent.position[0] + fraction * (self.agent.target[0] - self.agent.position[0]),
+                                        self.agent.position[1] + fraction * (self.agent.target[1] - self.agent.position[1]))
+                
+                if fraction >= 1:
+
+                    self.agent.position = self.agent.target
+
+                    if self.agent.delivering:
+                        print("Order Delivered")
+                        self.agent.orders.pop(0)
+
+                    self.agent.delivering = False
+                    self.agent.target     = None       
+
+            else:
+               
+               self.find_target()
+
+            self.agent.global_timer = datetime.datetime.now()
 
         
     def utility(self, order):
@@ -206,7 +232,7 @@ class DroneAgent(Agent):
         s_machine = StateBehaviour()
         cyclic    = self.UpdatePosition()
 
-
+    
         s_machine.add_state(name=LISTEN, state=Listen(), initial=True)
         s_machine.add_state(name=WAITING_ACCEPT, state=WaitingAccept())
         s_machine.add_state(name=DELIVERING, state=Delivering())

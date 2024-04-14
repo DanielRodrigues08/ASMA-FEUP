@@ -11,20 +11,6 @@ def delta(timer, seconds):
     return timer < datetime.datetime.now() - datetime.timedelta(seconds=seconds)
 
 
-async def receive_msg(agent, jid, timeout):
-
-    timer = datetime.datetime.now()
-
-
-    # TODO: check template
-
-    while delta(timer, timeout):
-         msg = await agent.receive(0)
-         if msg and msg.sender == jid:
-             return msg
-
-    return None
-
 def msg_orders_to_list(msg):
     orders = msg.body.split(" ")
     return orders
@@ -105,7 +91,8 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     
     a = (pow(math.sin(dLat / 2), 2) +
          pow(math.sin(dLon / 2), 2) *
-             math.cos(lat1) * math.cos(lat2));
+             math.cos(lat1) * math.cos(lat2))
+    
     rad = 6371
     c = 2 * math.asin(math.sqrt(a))
     return rad * c       

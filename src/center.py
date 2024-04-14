@@ -3,7 +3,7 @@ import json
 from spade.agent import Agent
 from spade.behaviour import PeriodicBehaviour, State, FSMBehaviour
 from spade.message import Message
-from utils import receive_msg, delta
+from utils import delta
 import asyncio
 
 TIMEOUT = 10
@@ -122,11 +122,11 @@ class WaitOk(State):
 
             payload = json.loads(msg.body)
             if payload["type"] == "OK":
-                print("AAAHHH")
                 self.agent.orders.pop()
-                await asyncio.sleep(2) #esperar antes de publicar nova order
+                await asyncio.sleep(2)
                 self.set_next_state(SEND_ORDER)
                 return
+
 
         if delta(self.agent.timer, TIMEOUT):
             self.set_next_state(SEND_ORDER)
