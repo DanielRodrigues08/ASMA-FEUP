@@ -11,8 +11,8 @@ LISTEN           = "LISTEN"
 DELIVERING       = "DELIVERING"
 RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY       = "NO_BATTERY"
-WAITING_ACCEPT      = "WAITING_ACCEPT"
-MEETING = "MEETING"
+WAITING_ACCEPT   = "WAITING_ACCEPT"
+MEETING          = "MEETING"
 TIMEOUT          = 10
 
 
@@ -67,7 +67,7 @@ class Listen(State):
                 print(f"Drone received meeting msg from support base")
                 self.agent.target = payload["meeting_point"]
                 self.agent.meeting = True
-                self.set_next_state(LISTEN) #not sure if needed
+                self.set_next_state(MEETING) #not sure if needed
                 return 
         
         self.set_next_state(LISTEN)
