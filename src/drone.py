@@ -65,6 +65,7 @@ class Listen(State):
                 self.agent.delivering = False
                 self.agent.current_base = msg.sender
                 self.set_next_state(LISTEN)
+                return
                 
             case "REARRANGE":
                 print(f"Drone received orders from support base")
@@ -75,6 +76,16 @@ class Listen(State):
                 answer = Message(to=str(msg.sender))
                 answer.body = json.dumps({"type": "REARRANGE_DONE", "reordered": result})    
                 await self.send(answer)
+                self.set_next_state(LISTEN)
+                return
+                
+            case "REARRANGEMENT_DONE":
+                print(f"Drone received rearranged orders")
+                self.agent.orders = payload["new_orders"]
+                print("NEW_ORDERS", self.agent.orders)
+                self.agent.block_new_orders = False
+                self.set_next_state(LISTEN)  
+                return 
         
         self.set_next_state(LISTEN)
         return
@@ -222,6 +233,7 @@ class DroneAgent(Agent):
                         print("Drone arrived at the support base")
                         msg = Message(to=str(self.agent.current_base))
                         msg.body = json.dumps({"type": "ARRIVED", "orders": self.agent.orders[1:]})
+                        self.agent.block_new_orders = True
                         await self.send(msg)   
                         self.agent.current_base = None  
 
@@ -270,7 +282,7 @@ class DroneAgent(Agent):
         all_combos = []
         utility_drone_1 = []
         
-        for r in range(1, len(pending_orders)+1):
+        for r in range(1, len(pending_orders)):
             possible_combos = possible_combos + [list(perm) for perm in permutations(pending_orders, r)]
         print("ALL_COMBOS", len(possible_combos))
         filtered_combos = [combo for combo in possible_combos if sum(order['weight'] for order in combo) <= self.max_capacity]

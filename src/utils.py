@@ -3,6 +3,7 @@ import numpy as np
 import re
 import math
 import datetime
+import heapq
 from itertools import permutations
 from spade.message import Message
 
@@ -95,4 +96,30 @@ def haversine_distance(lat1, lon1, lat2, lon2):
              math.cos(lat1) * math.cos(lat2))
     rad = 6371
     c = 2 * math.asin(math.sqrt(a))
-    return rad * c       
+    return rad * c  
+
+def find_orders_with_ids(orders, order_ids):
+    result = []
+    order_ids_set = set(order_ids)  # Convert list to set for expected IDs
+    required_length = len(order_ids_set)  # The number of unique order IDs required in the sub-list
+
+    for order_list in orders:
+        current_order_ids = {order['id'] for order in order_list[0]}
+
+        if current_order_ids == order_ids_set:
+            result.append(order_list)
+
+    return result
+   
+
+def find_missing_orders(sub_list, pending_orders):
+    existing_order_ids = {order['id'] for order in sub_list[0]}  # sub_list[0] contains the orders
+
+    missing_orders = [order for order in pending_orders if order['id'] not in existing_order_ids]
+    return missing_orders
+
+def main():
+    print(find_orders_with_ids([[[{'id': 'order1_79', 'd_lat': 18.977584, 'd_long': 72.882585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}, {'id': 'order1_78', 'd_lat': 19.017584, 'd_long': 72.922585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}], 103.00345356589233], [[{'id': 'order1_78', 'd_lat': 19.017584, 'd_long': 72.922585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}, {'id': 'order1_79', 'd_lat': 18.977584, 'd_long': 72.882585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}], 103.00345356589233], [[{'id': 'order1_79', 'd_lat': 18.977584, 'd_long': 72.882585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}, {'id': 'order2_78', 'd_lat': 19.007584, 'd_long': 72.912585, 'o_lat': 18.927584, 'o_long': 72.832585, 'weight': 10}], 83.85516740075536], [[{'id': 'order2_78', 'd_lat': 19.007584, 'd_long': 72.912585, 'o_lat': 18.927584, 'o_long': 72.832585, 'weight': 10}, {'id': 'order1_79', 'd_lat': 18.977584, 'd_long': 72.882585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}], 83.85516740075536], [[{'id': 'order1_78', 'd_lat': 19.017584, 'd_long': 72.922585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}, {'id': 'order2_78', 'd_lat': 19.007584, 'd_long': 72.912585, 'o_lat': 18.927584, 'o_long': 72.832585, 'weight': 10}], 79.60480655754694], [[{'id': 'order2_78', 'd_lat': 19.007584, 'd_long': 72.912585, 'o_lat': 18.927584, 'o_long': 72.832585, 'weight': 10}, {'id': 'order1_78', 'd_lat': 19.017584, 'd_long': 72.922585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}], 79.60480655754694], [[{'id': 'order1_79', 'd_lat': 18.977584, 'd_long': 72.882585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}], 53.62690720455038], [[{'id': 'order1_78', 'd_lat': 19.017584, 'd_long': 72.922585, 'o_lat': 18.994237, 'o_long': 72.825553, 'weight': 5}], 49.37654636134195], [[{'id': 'order2_78', 'd_lat': 19.007584, 'd_long': 72.912585, 'o_lat': 18.927584, 'o_long': 72.832585, 'weight': 10}], 30.228260196204978]], ['order2_78', 'order1_79']))
+
+if __name__ == "__main__":
+    main()
