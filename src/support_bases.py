@@ -1,7 +1,7 @@
 from spade.agent import Agent
 from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
-from utils import haversine_distance, rearrange_orders_base
+from utils import haversine_distance
 import json
 
 WAITING_1_MSG = "WAITING_1_MSG"
@@ -20,6 +20,7 @@ class StateBehaviour(FSMBehaviour):
 class Waiting_1_msg(State):
     async def run(self):
         self.agent.drones_close = []
+        self.agent.orders_rearrange = []
         msg = await self.receive(timeout=5)
         
         if msg is None:
@@ -84,16 +85,35 @@ class Waiting_Meeting(State):
               
         if payload_1["type"] == "ARRIVED" and payload_2["type"] == "ARRIVED":
             print("INCRIVEL")
+            self.agent.orders_rearrange = payload_1["orders"] + payload_2["orders"]
             self.set_next_state(REARRANGEMENT)
             return 
         else:
             self.set_next_state(WAITING_MEETING)
             return
         
-#class Rearrangement(State):
- #   async def run(self):
-  #      utility_drone_1, utility_drone_2 = rearrange_orders_base(self.drones_close[0], self.drones_close[0].orders[1:], self.drones_close[1], self.drones_close[1].orders[1:])      
+class Rearrangement(State):
+    async def run(self):
+        for drone in self.agent.drones_close:
+            msg = Message(to=str(drone))
+            msg.body = json.dumps({"type": "REARRANGE", "orders": self.agent.orders_rearrange})
+            await self.send(msg)
+            
+        msg1 = await self.receive(timeout=100)
+        msg2 = await self.receive(timeout=100)
         
+        payload_1 = json.loads(msg1.body)
+        payload_2 = json.loads(msg2.body)
+        
+        if payload_1["type"] == "REARRANGE_DONE" and payload_2["type"] == "REARRANGE_DONE":
+            print("PREF1", payload_1["reordered"])
+            print("PREF2", payload_2["reordered"])  
+            return
+        
+        #escolher as orders válidas 
+        
+        #utility_drone_1, utility_drone_2 = rearrange_orders_base(self.agent.drones_close[0], self.agent.drones_close[1], self.agent.orders_rearrange)      
+        #print("UTILIDADES", utility_drone_1, utility_drone_2)
         #sacar 1 order de ambos, e garantir q todas as orders tao la           
         
         
@@ -103,7 +123,8 @@ class SupportBase(Agent):
     def __init__(self, jid, password, position):
         super().__init__(jid, password)
         self.position = position
-        self.drones_close = []        
+        self.drones_close = []   
+        self.orders_rearrange = []     
     
     async def setup(self):
 
@@ -113,7 +134,7 @@ class SupportBase(Agent):
         s_machine.add_state(name=WAITING_1_MSG, state=Waiting_1_msg(), initial=True)
         s_machine.add_state(name=WAITING_2_MSG, state=Waiting_2_msg())
         s_machine.add_state(name=WAITING_MEETING, state=Waiting_Meeting())
-        #s_machine.add_state(name=NO_BATTERY, state=NoBattery())
+        s_machine.add_state(name=REARRANGEMENT, state=Rearrangement())
 
         s_machine.add_transition(source=WAITING_1_MSG, dest=WAITING_2_MSG)
         s_machine.add_transition(source=WAITING_1_MSG, dest=WAITING_1_MSG)
@@ -121,5 +142,7 @@ class SupportBase(Agent):
         s_machine.add_transition(source=WAITING_2_MSG, dest=WAITING_MEETING)
         s_machine.add_transition(source=WAITING_MEETING, dest=WAITING_1_MSG)
         s_machine.add_transition(source=WAITING_MEETING, dest=WAITING_MEETING)
+        s_machine.add_transition(source=WAITING_MEETING, dest=REARRANGEMENT)
+
 
         self.add_behaviour(s_machine)    
