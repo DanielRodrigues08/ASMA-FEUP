@@ -49,9 +49,9 @@ def create_system():
         matching_order = [order for order in orders_data if order['center'] == center_data['id']][0]
         centers.append(Center(center_data['id'] + '@localhost', center_data['id'], (center_data['latitude'], center_data['longitude']), matching_order['orders'], drones_jids))
 
-    return ambient, centers, drones
+    return ambient, centers, drones, support_bases
 
-ambient, centers, drones = create_system()
+ambient, centers, drones, support_bases = create_system()
 
 async def main():
 
@@ -65,8 +65,8 @@ async def main():
 
     for drone in drones:
         await drone.start(auto_register=True)
-
-    await support_base.start(auto_register=True)
+    for base in support_bases:
+        await base.start(auto_register=True)
     
     print("Center started")
     print("Ambient started")
