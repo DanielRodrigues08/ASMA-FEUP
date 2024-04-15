@@ -151,6 +151,10 @@ class DroneAgent(Agent):
         self.target       = None
         self.delivering   = False
 
+    def update_position(self, position):
+        self.position = position
+
+        
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
             print(f"Drone starts working")
