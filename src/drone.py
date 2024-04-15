@@ -46,7 +46,7 @@ class Listen(State):
 
             case "NEW_ORDER":
                 
-                print(payload)
+                #print(payload)
 
                 print(f"Drone received orders from center")
                 ans      = Message(to=str(msg.sender))
@@ -60,7 +60,8 @@ class Listen(State):
             
             case "UPDATE_ORDERS":
                 print(f"Drone going to support base")
-                self.agent.target = payload["position"]
+                self.agent.target = payload["position"][0], payload["position"][1]
+                self.agent.delivering = False
                 self.agent.current_base = msg.sender
                 self.set_next_state(LISTEN)
         
@@ -89,13 +90,13 @@ class WaitingAccept(State):
             return
         
         payload = json.loads(msg.body)
-        print(payload)
+        #print(payload)
 
         if payload["type"] == "ACCEPT":
 
             print(f"Drone received bid from center")
             self.agent.orders.append(order)
-            print(order)
+            #print(order)
             ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
             ans.set_metadata("performative", "inform")
             await self.send(ans)
@@ -157,8 +158,9 @@ class DroneAgent(Agent):
         self.timer        = datetime.datetime.now()
         self.global_timer = datetime.datetime.now() 
         self.target       = None
-        self.status       = False
+        self.delivering   = False
         self.current_base = None
+        self.base_collisions = []
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
@@ -182,14 +184,12 @@ class DroneAgent(Agent):
                 
         def check_collisions_supp_bases(self):
             for base in self.agent.support_bases:
-                if haversine_distance(self.agent.position[0], self.agent.position[1], base.position[0], base.position[1]) < 10:
+                if haversine_distance(self.agent.position[0], self.agent.position[1], base.position[0], base.position[1]) < 7:
                     return base
             return None      
     
         async def run(self):
-            
             if self.agent.target:
-                
                 delta    = (datetime.datetime.now() - self.agent.global_timer).total_seconds()
                 distance = haversine_distance(self.agent.position[0], self.agent.position[1],
                                               self.agent.target[0], self.agent.target[1]) * 1000
@@ -199,9 +199,8 @@ class DroneAgent(Agent):
 
                 self.agent.position = (self.agent.position[0] + fraction * (self.agent.target[0] - self.agent.position[0]),
                                         self.agent.position[1] + fraction * (self.agent.target[1] - self.agent.position[1]))
-                
+                 
                 if fraction >= 1:
-
                     self.agent.position = self.agent.target
 
                     if self.agent.delivering:
@@ -218,9 +217,11 @@ class DroneAgent(Agent):
                     self.agent.target     = None  
                     
                 base_collision = self.check_collisions_supp_bases()
-                if base_collision != None:
-                    msg = Message(to=str(base_collision), body=json.dumps({"type": "PRESENCE"}))
+                if base_collision != None and base_collision not in self.agent.base_collisions:
+                    self.agent.base_collisions.append(base_collision)
+                    msg = Message(to=str(base_collision.jid), body=json.dumps({"type": "PRESENCE"}))
                     msg.set_metadata("performative", "inform")
+                    print(msg.body)
                     await self.send(msg)      
 
             else:

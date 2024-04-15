@@ -64,7 +64,7 @@ class ReceiveBids(State):
         if msg:
             bid = json.loads(msg.body)
             if bid["type"] == "BID":
-                print(f"Center received bid from {msg.sender}")
+                #print(f"Center received bid from {msg.sender}")
                 self.agent.bids.append({"drone": msg.sender, "bid": bid["bid"]})
                 if len(self.agent.bids) == len(self.agent.drones):
                     self.set_next_state(AUCTION)

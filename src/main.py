@@ -31,7 +31,7 @@ async def main():
     drones      = []
 
     support_bases = []
-    support_base = SupportBase("support_base@localhost", "support_base", (0, 0))
+    support_base = SupportBase("support_base@localhost", "support_base", (18.995000, 72.826000))
     support_bases.append(support_base)
     
     for drone_data in drones_data:
