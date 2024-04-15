@@ -150,7 +150,7 @@ class DroneAgent(Agent):
         self.timer        = datetime.datetime.now()
         self.global_timer = datetime.datetime.now() 
         self.target       = None
-        self.status       = False
+        self.delivering   = False
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
