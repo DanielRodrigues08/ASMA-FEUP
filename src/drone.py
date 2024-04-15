@@ -6,6 +6,7 @@ from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
 from spade.message import Message
 from utils import msg_orders_to_list, haversine_distance, delta
 import datetime
+from itertools import permutations
 
 LISTEN           = "LISTEN"
 RETURNING_CENTER = "RETURNING_CENTER"
@@ -46,16 +47,16 @@ class Listen(State):
             case "NEW_ORDER":
                 
                 #print(payload)
-
-                print(f"Drone received orders from center")
-                ans      = Message(to=str(msg.sender))
-                bid      = self.agent.utility(payload["order"])
-                ans.body = json.dumps({"type": "BID", "bid": bid})
-                ans.set_metadata("performative", "propose")
-                await self.send(ans)
-                self.agent.pending = (msg.sender, payload["order"])
-                self.set_next_state(WAITING_ACCEPT)
-                return
+                if (self.agent.block_new_orders == False):
+                    print(f"Drone received orders from center")
+                    ans      = Message(to=str(msg.sender))
+                    bid      = self.agent.utility(payload["order"])
+                    ans.body = json.dumps({"type": "BID", "bid": bid})
+                    ans.set_metadata("performative", "propose")
+                    await self.send(ans)
+                    self.agent.pending = (msg.sender, payload["order"])
+                    self.set_next_state(WAITING_ACCEPT)
+                    return
             
             case "UPDATE_ORDERS":
                 print(f"Drone going to support base")
@@ -63,6 +64,27 @@ class Listen(State):
                 self.agent.delivering = False
                 self.agent.current_base = msg.sender
                 self.set_next_state(LISTEN)
+                return
+                
+            case "REARRANGE":
+                print(f"Drone received orders from support base")
+                self.agent.orders = [self.agent.orders[0]]
+                print("PAYLOAD", payload["orders"])
+                result = self.agent.rearrange_orders_base(payload["orders"])
+                print("TOP")
+                answer = Message(to=str(msg.sender))
+                answer.body = json.dumps({"type": "REARRANGE_DONE", "reordered": result})    
+                await self.send(answer)
+                self.set_next_state(LISTEN)
+                return
+                
+            case "REARRANGEMENT_DONE":
+                print(f"Drone received rearranged orders")
+                self.agent.orders = payload["new_orders"]
+                print("NEW_ORDERS", self.agent.orders)
+                self.agent.block_new_orders = False
+                self.set_next_state(LISTEN)  
+                return 
         
         self.set_next_state(LISTEN)
         return
@@ -160,6 +182,7 @@ class DroneAgent(Agent):
         self.delivering   = False
         self.current_base = None
         self.base_collisions = []
+        self.block_new_orders = False
 
     def update_position(self, position):
         self.position = position
@@ -211,7 +234,8 @@ class DroneAgent(Agent):
                     else:
                         print("Drone arrived at the support base")
                         msg = Message(to=str(self.agent.current_base))
-                        msg.body = json.dumps({"type": "ARRIVED"})
+                        msg.body = json.dumps({"type": "ARRIVED", "orders": self.agent.orders[1:]})
+                        self.agent.block_new_orders = True
                         await self.send(msg)   
                         self.agent.current_base = None  
 
@@ -236,7 +260,7 @@ class DroneAgent(Agent):
     def utility(self, order):
         distance_1 = haversine_distance(self.position[0], self.position[1], order["o_lat"], order["o_long"])
         distance_2 = haversine_distance(order["o_lat"], order["o_long"], order["d_lat"], order["d_long"])
-        
+
         total_distance = distance_1 + distance_2
         
         if (total_distance > self.autonomy):
@@ -247,7 +271,7 @@ class DroneAgent(Agent):
         current_capacity = self.max_capacity
         for order_assigned in self.orders:
             current_capacity -= order_assigned["weight"]
-        
+            
         utility_capacity = current_capacity - order["weight"]
         if (utility_capacity < 0):
             return -1
@@ -255,7 +279,27 @@ class DroneAgent(Agent):
         utility_final_score = utility_distance + utility_capacity*2
         return utility_final_score        
         
+    def rearrange_orders_base(self, pending_orders):  
+        possible_combos = []
+        all_combos = []
+        utility_drone_1 = []
         
+        for r in range(1, len(pending_orders)):
+            possible_combos = possible_combos + [list(perm) for perm in permutations(pending_orders, r)]
+        print("ALL_COMBOS", len(possible_combos))
+        filtered_combos = [combo for combo in possible_combos if sum(order['weight'] for order in combo) <= self.max_capacity]
+        all_combos.extend(filtered_combos)
+        for combo in all_combos:
+            utility_1 = 0
+            for element in combo:
+                utility_1 = utility_1 + self.utility(element) 
+            utility_data_1 = (combo, utility_1)
+            
+            utility_drone_1.append(utility_data_1)
+        utility_drone_1 = sorted(utility_drone_1, key=lambda x: x[1], reverse=True)
+        
+        return utility_drone_1
+    
     async def setup(self):
 
         s_machine = StateBehaviour()
