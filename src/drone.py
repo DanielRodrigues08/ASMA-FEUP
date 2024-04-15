@@ -9,7 +9,6 @@ import datetime
 from itertools import permutations
 
 LISTEN           = "LISTEN"
-DELIVERING       = "DELIVERING"
 RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY       = "NO_BATTERY"
 WAITING_ACCEPT      = "WAITING_ACCEPT"
@@ -185,6 +184,10 @@ class DroneAgent(Agent):
         self.base_collisions = []
         self.block_new_orders = False
 
+    def update_position(self, position):
+        self.position = position
+
+        
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
             print(f"Drone starts working")
@@ -218,7 +221,6 @@ class DroneAgent(Agent):
                                               self.agent.target[0], self.agent.target[1]) * 1000
                 
                 fraction = self.agent.velocity * delta / distance
-
 
                 self.agent.position = (self.agent.position[0] + fraction * (self.agent.target[0] - self.agent.position[0]),
                                         self.agent.position[1] + fraction * (self.agent.target[1] - self.agent.position[1]))
@@ -313,7 +315,6 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
-        s_machine.add_transition(source=DELIVERING, dest=RETURNING_CENTER)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
 
         self.add_behaviour(cyclic)
