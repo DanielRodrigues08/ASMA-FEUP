@@ -27,52 +27,69 @@ class StateBehaviour(FSMBehaviour):
 class SendOrder(State):
 
     async def run(self):
-        
+
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
             print("Not sending order")
             return
 
-        order      = self.agent.orders[-1]
-        order_data = {"type": "NEW_ORDER", "order": {"id": order[0], "d_lat": float(order[1]), "d_long": float(order[2]), "o_lat": float(self.agent.position[0]), "o_long": float(self.agent.position[1]), "weight": int(order[3])}}
-        payload    = json.dumps(order_data)
+        num_orders = max(self.agent.batch_size, len(self.agent.orders))
 
+        orders = self.agent.orders[-num_orders:]
+
+        orders_data = {
+            "type": "NEW_ORDERS",
+            "orders": {
+                order[0]: {
+                    "d_lat": float(order[1]),
+                    "d_long": float(order[2]),
+                    "o_lat": float(self.agent.position[0]),
+                    "o_long": float(self.agent.position[1]),
+                    "weight": int(order[3]),
+                }
+                for order in orders
+            },
+        }
+
+        self.agent.pending_orders = set(order[0] for order in orders)
+
+        payload = json.dumps(orders_data)
 
         print("SENDING")
         for drone in self.agent.drones:
-            msg               = Message(to=str(drone))
-            msg.body          = payload
+            msg = Message(to=str(drone))
+            msg.body = payload
             msg.set_metadata("performative", "inform")
             await self.send(msg)
-        
+
         self.agent.timer = datetime.datetime.now()
         self.set_next_state(RECEIVE_BIDS)
         return
 
+
 class ReceiveBids(State):
 
-    async def run(self):    
+    async def run(self):
 
-        if delta(self.agent.timer, TIMEOUT):
+        if delta(self.agent.timer, self.agent.timeout):
             self.set_next_state(AUCTION)
             return
 
-
         msg = await self.receive(timeout=1)
-   
+
         if msg:
-            bid = json.loads(msg.body)
-            if bid["type"] == "BID":
-                #print(f"Center received bid from {msg.sender}")
-                self.agent.bids.append({"drone": msg.sender, "bid": bid["bid"]})
+            body = json.loads(msg.body)
+            if body["type"] == "BIDS":
+                # print(f"Center received bid from {msg.sender}")
+                self.agent.bids.append({"drone": msg.sender, "bids": body["bids"]})
                 if len(self.agent.bids) == len(self.agent.drones):
                     self.set_next_state(AUCTION)
                     return
-                
+
         self.set_next_state(RECEIVE_BIDS)
         return
-        
+
 
 class Auction(State):
 
@@ -84,68 +101,90 @@ class Auction(State):
             self.set_next_state(SEND_ORDER)
             return
 
-        self.agent.bids = sorted(self.agent.bids, key=lambda x: x["bid"], reverse=True)
-        best_bid = self.agent.bids[0]
-        self.agent.best_bid = best_bid
+        self.agent.bids = sorted(
+            self.agent.bids, key=lambda x: x["value"], reverse=True
+        )
 
-        if best_bid is None:
-            return
-        
-        if best_bid["bid"] < 0:
-            print(f"No drones available")
-            self.set_next_state(SEND_ORDER)
-            return
-            
-
-        drone_jid  =  str(best_bid["drone"])
-        print("BEST-DRONE", drone_jid)
-        msg        = Message(to=drone_jid)
-        msg.body   = json.dumps({"type": "ACCEPT"})
-        await self.send(msg)
+        accepted_bids = []
+        accepted_orders = set()
+        accepted_drones = set()
 
         for bid in self.agent.bids:
-            if bid["drone"] != best_bid["drone"]:
-                msg        = Message(to=str(bid["drone"]))
-                msg.body   = json.dumps({"type": "REJECT"})
-                await self.send(msg)
+            if len(accepted_orders) == len(self.agent.pending_orders):
+                break
 
+            if (
+                len(accepted_orders & set(bid["orders"])) == 0
+                and len(accepted_drones & set(bid["sender"])) == 0
+            ):
+                accepted_bids.append(bid)
+                accepted_orders.update(set(bid["orders"]))
+                accepted_drones.add(bid["sender"])
+
+        for accepted_bid in accepted_bids:
+            msg = Message(to=accepted_bid["sender"])
+            msg.body = json.dumps({"type": "ACCEPT", "orders": accepted_bid["orders"]})
+            await self.send(msg)
+
+        for declined_drone in set(self.agent.drones) - accepted_drones:
+            msg = Message(to=declined_drone)
+            msg.body = json.dumps({"type": "REJECT"})
+            await self.send(msg)
+
+        self.agent.accepted_bids = {}
+        for accepted_bid in accepted_bids:
+            self.agent.accepted_bids[accepted_bid["sender"]] = accepted_bid["orders"]
+
+        self.agent.confirmed_orders = []
         self.set_next_state(WAIT_OK)
 
+
 class WaitOk(State):
-    
+
     async def run(self):
 
-        msg = await self.receive(timeout=0)
-        if msg:
-            if msg.sender != self.agent.best_bid["drone"]:
-                self.set_next_state(WAIT_OK)
-
-            payload = json.loads(msg.body)
-            if payload["type"] == "OK":
-                self.agent.orders.pop()
-                await asyncio.sleep(2)
-                self.set_next_state(SEND_ORDER)
-                return
-
+        if len(self.agent.confirmed_orders) == len(self.agent.pending_orders):
+            self.agent.orders = [
+                order
+                for order in self.agent.orders
+                if order[0] not in self.agent.confirmed_orders
+            ]
+            self.agent.pending_orders = []
+            self.agent.confirmed_orders = []
+            self.agent.accepted_bids = {}
+            self.set_next_state(SEND_ORDER)
 
         if delta(self.agent.timer, TIMEOUT):
             self.set_next_state(SEND_ORDER)
             return
-        
+
+        msg = await self.receive(timeout=0)
+        if msg:
+            if msg.sender not in set(self.agent.accepted_bids.keys()):
+                self.set_next_state(WAIT_OK)
+
+            payload = json.loads(msg.body)
+            if payload["type"] == "OK":
+                self.confirmed_orders += self.agent.accepted_bids[msg.sender]
+
         self.set_next_state(WAIT_OK)
+
 
 class Center(Agent):
 
-    def __init__(self, jid, password, position, orders, drones):
+    def __init__(
+        self, jid, password, position, orders, drones, batch_size=1, timeout=1
+    ):
 
         super().__init__(jid, password)
         self.position = position
         self.orders = orders
         self.drones = drones
-        self.timer  = datetime.datetime.now()
+        self.timer = datetime.datetime.now()
+        self.batch_size = batch_size
+        self.timeout = timeout
+        self.pending_orders = []
 
-        
-        
     async def setup(self):
 
         s_machine = StateBehaviour()
@@ -167,3 +206,8 @@ class Center(Agent):
 
         self.add_behaviour(s_machine)
 
+    def set_batch_size(self, batch_size):
+        self.batch_size = batch_size
+
+    def set_timeout(self, timeout):
+        self.timeout = timeout
