@@ -6,6 +6,7 @@ from drone import DroneAgent
 from ambient import Ambient
 from center import Center
 from monitor import create_window
+from gui import run_gui
 from support_bases import SupportBase
 from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict, orders_to_dict
 
@@ -74,7 +75,9 @@ async def main():
     print("Drones started")
     
 
-# create wrapper function that takes only position as parameter and changes drone 1 position
+
+def get_position(id=0):
+    return drones[id].position
 
 def update_position(position, id=0):
 
@@ -87,11 +90,15 @@ def run_spade():
 if __name__ == "__main__":
 
 
-    p1 = multiprocessing.Process(target=create_window, args=(None, update_position))
+    #p1 = multiprocessing.Process(target=create_window, args=(None, update_position))
     p2 = multiprocessing.Process(target=run_spade, args=())
+    # p3 = multiprocessing.Process(target=run_gui, args=(len(drones), get_position, 18.995000, 72.826000))
 
-    p1.start()
+
+    #p1.start()
     p2.start()
+    # p3.start()
 
-    p1.join()
+    #p1.join()
     p2.join()
+    # p3.join()
