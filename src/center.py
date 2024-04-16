@@ -29,11 +29,13 @@ class SendOrder(State):
 
     async def run(self):
 
-        if self.agent.first:
+        '''if self.agent.first:
             self.agent.first = False
         else:
             time.sleep(20)
+        '''
 
+        print("HELLO PLS")
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
@@ -162,8 +164,8 @@ class WaitOk(State):
             self.agent.confirmed_orders = []
             self.agent.accepted_bids = {}
 
-            print("HELLO")
             self.set_next_state(SEND_ORDER)
+            return
 
         msg = await self.receive(timeout=1)
         if msg:
