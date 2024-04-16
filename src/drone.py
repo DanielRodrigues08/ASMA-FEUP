@@ -11,7 +11,7 @@ LISTEN = "LISTEN"
 RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY = "NO_BATTERY"
 WAITING_ACCEPT = "WAITING_ACCEPT"
-TIMEOUT = 10
+TIMEOUT = 20
 
 
 class StateBehaviour(FSMBehaviour):
@@ -82,7 +82,7 @@ class WaitingAccept(State):
         msg = None
         center, pending_orders = self.agent.pending
 
-        if delta(self.agent.timer, 30): #TODO: Change this
+        if delta(self.agent.timer, TIMEOUT): 
             await asyncio.sleep(1)
             self.set_next_state(LISTEN)
             return
@@ -107,7 +107,6 @@ class WaitingAccept(State):
             await self.send(ans)
 
         if payload["type"] == "REJECT":
-            print(str(self.agent.jid) + " Rejected Order")
             pass
 
         self.set_next_state(LISTEN)
@@ -301,6 +300,5 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
 
-        # TODO: For Debug
-        # self.add_behaviour(cyclic)
+        self.add_behaviour(cyclic)
         self.add_behaviour(s_machine)

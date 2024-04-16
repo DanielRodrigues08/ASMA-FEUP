@@ -6,8 +6,7 @@ from spade.message import Message
 from utils import delta
 import time
 
-TIMEOUT = 10
-
+TIMEOUT_MESSAGES = 10
 
 SEND_ORDER = "SEND_ORDER"
 RECEIVE_BIDS = "RECEIVE_BIDS"
@@ -29,13 +28,12 @@ class SendOrder(State):
 
     async def run(self):
 
-        '''if self.agent.first:
+        if self.agent.first:
             self.agent.first = False
         else:
-            time.sleep(20)
-        '''
+            time.sleep(self.agent.send_orders_timeout)
+        
 
-        print("HELLO PLS")
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
@@ -81,7 +79,7 @@ class ReceiveBids(State):
 
     async def run(self):
 
-        if delta(self.agent.timer, self.agent.timeout):
+        if delta(self.agent.timer, TIMEOUT_MESSAGES):
             self.set_next_state(AUCTION)
             return
 
@@ -114,7 +112,6 @@ class Auction(State):
         accepted_orders = set()
         accepted_drones = set()
 
-        print("PROPOSED")
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):
                 break
@@ -128,6 +125,7 @@ class Auction(State):
                 accepted_drones.add(bid["sender"])
 
         for accepted_bid in accepted_bids:
+            print(f"Center accepted bid from {accepted_bid['sender']}")
             msg = Message(to=accepted_bid["sender"])
             msg.body = json.dumps(
                 {"type": "ACCEPT", "id_orders": accepted_bid["id_orders"]}
@@ -151,9 +149,8 @@ class Auction(State):
 class WaitOk(State):
 
     async def run(self):
-        print(len(self.agent.confirmed_orders), len(self.agent.pending_orders))
         if len(self.agent.confirmed_orders) == len(self.agent.pending_orders) or delta(
-            self.agent.timer, TIMEOUT
+            self.agent.timer, TIMEOUT_MESSAGES
         ):
             self.agent.orders = [
                 order
@@ -182,7 +179,7 @@ class WaitOk(State):
 class Center(Agent):
 
     def __init__(
-        self, jid, password, position, orders, drones, batch_size=2, timeout=10
+        self, jid, password, position, orders, drones, batch_size=2, send_orders_timeout=10
     ):
 
         super().__init__(jid, password)
@@ -191,7 +188,7 @@ class Center(Agent):
         self.drones = drones
         self.timer = datetime.datetime.now()
         self.batch_size = batch_size
-        self.timeout = timeout
+        self.send_orders_timeout = send_orders_timeout
         self.pending_orders = []
 
         # Only For Debug
@@ -221,5 +218,5 @@ class Center(Agent):
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
 
-    def set_timeout(self, timeout):
-        self.timeout = timeout
+    def set_timeout_orders(self, timeout):
+        self.send_orders_timeout = timeout
