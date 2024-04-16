@@ -19,7 +19,7 @@ class Ambient(Agent):
         
         async def run(self):
 
-            print(f"Ambient Warning Incoming at {datetime.datetime.now()}: {self.counter}")
+            # print(f"Ambient Warning Incoming at {datetime.datetime.now()}: {self.counter}")
 
             for drone in self.agent.drones:
 
@@ -39,7 +39,7 @@ class Ambient(Agent):
 
     async def setup(self):
 
-        print(f"Ambient started at {datetime.datetime.now()}")
+        # print(f"Ambient started at {datetime.datetime.now()}")
         start_date = datetime.datetime.now()
         b = self.InformBehav(period=10, start_at=start_date)
         self.add_behaviour(b)

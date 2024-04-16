@@ -16,16 +16,16 @@ TIMEOUT = 10
 
 class StateBehaviour(FSMBehaviour):
     async def on_start(self):
-        print(f"FSM starting at initial state {self.current_state}")
+        # print(f"FSM starting at initial state {self.current_state}")
+        pass
 
     async def on_end(self):
-        print(f"FSM finished at state {self.current_state}")
+        # print(f"FSM finished at state {self.current_state}")
         await self.agent.stop()
 
 
 class Listen(State):
     async def run(self):
-
         self.agent.timer = datetime.datetime.now()
 
         if self.agent.battery == 0:
@@ -43,17 +43,16 @@ class Listen(State):
         match payload["type"]:
 
             case "NEW_ORDERS":
-                print(f"Drone received orders from center")
+                # print(f"Drone received orders from center")
                 bids = []
-
                 # TODO: Change this
                 for order in payload["orders"]:
                     value = self.agent.utility(order)
                     bids.append(
                         {
-                            "id_orders": [order[0]],
+                            "id_orders": [order["id"]],
                             "value": value,
-                            "sender": self.agent.jid,
+                            "sender": str(self.agent.jid),
                         }
                     )
 
@@ -66,7 +65,7 @@ class Listen(State):
                 return
 
             case "UPDATE_ORDERS":
-                print(f"Drone going to support base")
+                # print(f"Drone going to support base")
                 self.agent.target = payload["position"][0], payload["position"][1]
                 self.agent.delivering = False
                 self.agent.current_base = msg.sender
@@ -83,19 +82,18 @@ class WaitingAccept(State):
         msg = None
         center, pending_orders = self.agent.pending
 
-        if delta(self.agent.timer, TIMEOUT):
-            print("here")
+        if delta(self.agent.timer, 30): #TODO: Change this
             await asyncio.sleep(1)
             self.set_next_state(LISTEN)
             return
 
-        msg = await self.receive(timeout=0)
+        msg = await self.receive(timeout=2)
         if not msg or msg.sender != center:
             self.set_next_state(WAITING_ACCEPT)
             return
 
+
         payload = json.loads(msg.body)
-        # print(payload)
 
         if payload["type"] == "ACCEPT":
             for id_order in payload["id_orders"]:
@@ -103,13 +101,14 @@ class WaitingAccept(State):
                     if order["id"] == id_order:
                         self.agent.orders.append(order)
 
-            print(f"Drone received bid from center")
+            # print(f"Drone received bid from center")
             ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
             ans.set_metadata("performative", "inform")
             await self.send(ans)
 
         if payload["type"] == "REJECT":
-            print(f"Drone received bid from center")
+            print(str(self.agent.jid) + " Rejected Order")
+            pass
 
         self.set_next_state(LISTEN)
         return
@@ -118,7 +117,7 @@ class WaitingAccept(State):
 class ReturningCenter(State):
 
     async def run(self):
-        print(f"Drone returning to the center")
+        # print(f"Drone returning to the center")
         center, _ = self.agent.pending
 
         self.agent.target = center
@@ -130,7 +129,7 @@ class ReturningCenter(State):
 
 class NoBattery(State):
     async def run(self):
-        print(f"Drone has no battery/finished its deliveries")
+        # print(f"Drone has no battery/finished its deliveries")
         await self.agent.stop()
 
 
@@ -168,11 +167,12 @@ class DroneAgent(Agent):
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
-            print(f"Drone starts working")
-            print(self.agent.position)
+            # print(f"Drone starts working")
+            # print(self.agent.position)
+            pass
 
         async def on_end(self):
-            print(f"Drone finished working")
+            # print(f"Drone finished working")
             await self.agent.stop()
 
         def find_target(self):
@@ -227,10 +227,10 @@ class DroneAgent(Agent):
                     self.agent.position = self.agent.target
 
                     if self.agent.delivering:
-                        print("Order Delivered")
+                        # print("Order Delivered")
                         self.agent.orders.pop(0)
                     else:
-                        print("Drone arrived at the support base")
+                        # print("Drone arrived at the support base")
                         msg = Message(to=str(self.agent.current_base))
                         msg.body = json.dumps({"type": "ARRIVED"})
                         await self.send(msg)
@@ -250,7 +250,7 @@ class DroneAgent(Agent):
                         body=json.dumps({"type": "PRESENCE"}),
                     )
                     msg.set_metadata("performative", "inform")
-                    print(msg.body)
+                    # print(msg.body)
                     await self.send(msg)
 
             else:
@@ -301,5 +301,6 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
 
-        self.add_behaviour(cyclic)
+        # TODO: For Debug
+        # self.add_behaviour(cyclic)
         self.add_behaviour(s_machine)
