@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
 
     p1 = multiprocessing.Process(target=create_window, args=(None, update_position))
-    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values))
+    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
 
     p1.start()    
     p3.start()

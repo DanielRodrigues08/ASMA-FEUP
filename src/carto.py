@@ -6,7 +6,7 @@ from random import uniform
 
 
 
-def create_gui(n, func, values):
+def create_gui(n, func, values, centers, bases,):
     
 
     # Initialize drone coordinates
@@ -28,7 +28,7 @@ def create_gui(n, func, values):
         ax.clear()
         
         # Set the map extent based on drone positions
-        ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=ccrs.PlateCarree())
+        ax.set_extent([min_lon-0.005, max_lon+0.005, min_lat-0.005, max_lat+0.005], crs=ccrs.PlateCarree())
         
         # Plot world map background
         ax.add_feature(cfeature.COASTLINE)
@@ -40,6 +40,18 @@ def create_gui(n, func, values):
         ax.scatter([lon for lat, lon in drone_coordinates], 
                 [lat for lat, lon in drone_coordinates], 
                 color='red', marker='o', transform=ccrs.PlateCarree())
+        
+        # Plot centers
+
+        ax.scatter([lon for lat, lon in centers],
+                   [lat for lat, lon in centers],
+                color='blue', marker='^', transform=ccrs.PlateCarree())
+        
+        # Plot bases
+
+        ax.scatter([lon for lat, lon in bases],
+                     [lat for lat, lon in bases],
+                 color='green', marker='s', transform=ccrs.PlateCarree())
         
         ax.set_title(f'Drone Positions - Frame {frame}')
 
