@@ -11,7 +11,7 @@ from itertools import permutations
 LISTEN           = "LISTEN"
 RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY       = "NO_BATTERY"
-WAITING_ACCEPT      = "WAITING_ACCEPT"
+WAITING_ACCEPT   = "WAITING_ACCEPT"
 TIMEOUT          = 10
 
 
@@ -221,16 +221,21 @@ class DroneAgent(Agent):
                                               self.agent.target[0], self.agent.target[1]) * 1000
                 
                 fraction = self.agent.velocity * delta / distance
-
+               
                 self.agent.position = (self.agent.position[0] + fraction * (self.agent.target[0] - self.agent.position[0]),
                                         self.agent.position[1] + fraction * (self.agent.target[1] - self.agent.position[1]))
                  
                 if fraction >= 1:
                     self.agent.position = self.agent.target
-
+                    
                     if self.agent.delivering:
                         print("Order Delivered")
                         self.agent.orders.pop(0)
+                        print(f"Drone returning to the center")
+                        center, _ = self.agent.pending
+
+                        self.agent.target     = center
+                        self.agent.delivering = False
                     else:
                         print("Drone arrived at the support base")
                         msg = Message(to=str(self.agent.current_base))
@@ -314,8 +319,11 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=WAITING_ACCEPT)
+        s_machine.add_transition(source=LISTEN, dest=RETURNING_CENTER)    
+        s_machine.add_transition(source=RETURNING_CENTER, dest=LISTEN)                    
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
+        
 
         self.add_behaviour(cyclic)
         self.add_behaviour(s_machine)
