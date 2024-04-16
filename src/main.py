@@ -84,18 +84,11 @@ async def main():
         drone.web.start(hostname="localhost", port=counter)
         counter += 1
 
-        # TODO: Debugging. Remove this in production
-        if counter == 6003:
-            break
-
     counter = 5000
     for center in centers:
         await center.start(auto_register=True)
         center.web.start(hostname="localhost", port=counter)
         counter += 1
-
-        # TODO: Debugging. Remove this in production
-        break
 
     # await support_base.start(auto_register=True)
 
