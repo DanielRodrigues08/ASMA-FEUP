@@ -1,36 +1,38 @@
 import asyncio
 import spade
+import platform
 import multiprocessing
 import os
 from drone import DroneAgent
 from ambient import Ambient
 from center import Center
 from monitor import create_window
-from gui import run_gui
+from carto import create_gui
 from support_bases import SupportBase
 from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict, orders_to_dict
 
 CENTERS_DIR = "../data/centers/"
 DRONES_DIR = "../data/drones/"
 
+centers_data = []
+orders_data = []
+drones_data = []
+
+
+for filename in os.listdir(CENTERS_DIR):
+    centers_data = centers_data + [csv_centers_to_system(CENTERS_DIR + filename)]
+    orders_data = orders_data + [csv_orders_to_system(CENTERS_DIR + filename)]
+
+
+for filename in os.listdir(DRONES_DIR):
+    drones_data = csv_drones_to_system(DRONES_DIR + filename)
+
+centers_data = centers_to_dict(centers_data)
+orders_data = orders_to_dict(orders_data)
+drones_data = position_drones(drones_data, centers_data)
 
 def create_system():
-    centers_data = []
-    orders_data = []
-    drones_data = []
 
-
-    for filename in os.listdir(CENTERS_DIR):
-        centers_data = centers_data + [csv_centers_to_system(CENTERS_DIR + filename)]
-        orders_data = orders_data + [csv_orders_to_system(CENTERS_DIR + filename)]
-
-
-    for filename in os.listdir(DRONES_DIR):
-        drones_data = csv_drones_to_system(DRONES_DIR + filename)
-
-    centers_data = centers_to_dict(centers_data)
-    orders_data = orders_to_dict(orders_data)
-    drones_data = position_drones(drones_data, centers_data)
     drones      = []
 
     support_bases = []
@@ -57,6 +59,7 @@ ambient, centers, drones, support_bases = create_system()
 async def main():
 
 
+    print("J")
     await ambient.start(auto_register=True)
     await asyncio.sleep(2)
 
@@ -68,37 +71,75 @@ async def main():
         await drone.start(auto_register=True)
     for base in support_bases:
         await base.start(auto_register=True)
-    
-    print("Center started")
-    print("Ambient started")
-    print("Supplier started")
-    print("Drones started")
+   
     
 
 
 def get_position(id=0):
-    return drones[id].position
+    drones[id].set_flag()
+    return drones[id].get_position()
 
 def update_position(position, id=0):
-
     drones[id].update_position(position)
-    print(drones[id].position)
 
 def run_spade():
     spade.run(main())
 
+def get_values():
+
+    min_lat = 999999
+    max_lat = -999999
+    min_lon = 999999
+    max_lon = -999999
+
+    for center in centers:
+        min_lat = min(min_lat, center.position[0])
+        max_lat = max(max_lat, center.position[0])
+        min_lon = min(min_lon, center.position[1])
+        max_lon = max(max_lon, center.position[1])
+
+    for drone in drones:
+        min_lat = min(min_lat, drone.position[0])
+        max_lat = max(max_lat, drone.position[0])
+        min_lon = min(min_lon, drone.position[1])
+        max_lon = max(max_lon, drone.position[1])
+    
+    for order in orders_data[0]['orders']:
+        min_lat = min(min_lat, order[1])
+        max_lat = max(max_lat, order[1])
+        min_lon = min(min_lon, order[2])
+        max_lon = max(max_lon, order[2])
+
+    return {
+        "min_lat": min_lat,
+        "max_lat": max_lat,
+        "min_lon": min_lon,
+        "max_lon": max_lon
+    }
+        
+
 if __name__ == "__main__":
 
-
-    #p1 = multiprocessing.Process(target=create_window, args=(None, update_position))
-    p2 = multiprocessing.Process(target=run_spade, args=())
-    # p3 = multiprocessing.Process(target=run_gui, args=(len(drones), get_position, 18.995000, 72.826000))
+    values = get_values()
 
 
-    #p1.start()
-    p2.start()
-    # p3.start()
+    manager = multiprocessing.Manager()
 
-    #p1.join()
-    p2.join()
-    # p3.join()
+    proxy = manager.list()
+    for drone in drones:
+        new_xy      = manager.dict()
+        new_xy['x'] = 0
+        new_xy['y'] = 0
+        drone.xy = new_xy
+        proxy.append(drone.xy)
+
+
+    p1 = multiprocessing.Process(target=create_window, args=(None, update_position))
+    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values))
+
+    p1.start()    
+    p3.start()
+    run_spade()
+    p1.join()
+    p3.join()
+

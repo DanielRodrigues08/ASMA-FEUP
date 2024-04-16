@@ -16,6 +16,9 @@ TIMEOUT          = 10
 
 
 
+
+
+
 class StateBehaviour(FSMBehaviour):
     async def on_start(self):
         print(f"FSM starting at initial state {self.current_state}")
@@ -111,7 +114,6 @@ class WaitingAccept(State):
             return
         
         payload = json.loads(msg.body)
-        #print(payload)
 
         if payload["type"] == "ACCEPT":
 
@@ -175,6 +177,7 @@ class DroneAgent(Agent):
         self.pending      = None
         self.autonomy     = autonomy  
         self.velocity     = velocity  
+        self.flag          = 0
         self.max_capacity = max_capacity  
         self.timer        = datetime.datetime.now()
         self.global_timer = datetime.datetime.now() 
@@ -183,10 +186,16 @@ class DroneAgent(Agent):
         self.current_base = None
         self.base_collisions = []
         self.block_new_orders = False
+        self.xy = {"x": 1, "y": 1}
 
+    def set_flag(self):
+        print(self)
+        self.flag = 1
+        print("HEY")
     def update_position(self, position):
         self.position = position
-
+    def get_position(self):
+        return self.position
         
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
@@ -208,24 +217,33 @@ class DroneAgent(Agent):
 
                 self.agent.target = None
                 
-        def check_collisions_supp_bases(self):
+        def check_collisions_bases(self):
             for base in self.agent.support_bases:
                 if haversine_distance(self.agent.position[0], self.agent.position[1], base.position[0], base.position[1]) < 7:
                     return base
             return None      
     
         async def run(self):
+
+            self.agent.xy["x"] = self.agent.position[0]
+            self.agent.xy["y"] = self.agent.position[1]
+
             if self.agent.target:
                 delta    = (datetime.datetime.now() - self.agent.global_timer).total_seconds()
                 distance = haversine_distance(self.agent.position[0], self.agent.position[1],
-                                              self.agent.target[0], self.agent.target[1]) * 1000
+                                              self.agent.target[0], self.agent.target[1])
                 
-                fraction = self.agent.velocity * delta / distance
+                if distance != 0:
 
+                    fraction = self.agent.velocity * delta / distance
+                else:
+                    fraction = 1
                 self.agent.position = (self.agent.position[0] + fraction * (self.agent.target[0] - self.agent.position[0]),
                                         self.agent.position[1] + fraction * (self.agent.target[1] - self.agent.position[1]))
                  
+            
                 if fraction >= 1:
+
                     self.agent.position = self.agent.target
 
                     if self.agent.delivering:
@@ -242,7 +260,7 @@ class DroneAgent(Agent):
                     self.agent.delivering = False
                     self.agent.target     = None  
                     
-                base_collision = self.check_collisions_supp_bases()
+                base_collision = self.check_collisions_bases()
                 if base_collision != None and base_collision not in self.agent.base_collisions:
                     self.agent.base_collisions.append(base_collision)
                     msg = Message(to=str(base_collision.jid), body=json.dumps({"type": "PRESENCE"}))

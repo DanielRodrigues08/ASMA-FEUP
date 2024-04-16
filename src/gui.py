@@ -18,7 +18,7 @@ def long_lat_to_xy(latitude, longitude):
     x = R * math.cos(lat_rad) * math.sin(lon_rad - center_lon_rad)
     y = R * (math.cos(center_lat_rad) * math.sin(lat_rad) - math.sin(center_lat_rad) * math.cos(lat_rad) * math.cos(lon_rad - center_lon_rad))
 
-    return x, y
+    return x * 10, y * 10
 
 class GameObject:
     def __init__(self, n, func):
@@ -37,7 +37,7 @@ class GameObject:
 
     def draw(self, surface):
         # Example: Draw the object on the surface
-        pygame.draw.circle(surface, self.color, (self.x, self.y), 20)
+        pygame.draw.circle(surface, self.color, (self.x, self.y), 10)
     
 
 
