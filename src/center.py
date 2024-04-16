@@ -40,8 +40,9 @@ class SendOrder(State):
 
         orders_data = {
             "type": "NEW_ORDERS",
-            "orders": {
-                order[0]: {
+            "orders": [
+                {
+                    "id": order[0],
                     "d_lat": float(order[1]),
                     "d_long": float(order[2]),
                     "o_lat": float(self.agent.position[0]),
@@ -49,7 +50,7 @@ class SendOrder(State):
                     "weight": int(order[3]),
                 }
                 for order in orders
-            },
+            ],
         }
 
         self.agent.pending_orders = set(order[0] for order in orders)
@@ -68,6 +69,7 @@ class SendOrder(State):
         return
 
 
+
 class ReceiveBids(State):
 
     async def run(self):
@@ -82,11 +84,8 @@ class ReceiveBids(State):
             body = json.loads(msg.body)
             if body["type"] == "BIDS":
                 # print(f"Center received bid from {msg.sender}")
-                self.agent.bids.append({"drone": msg.sender, "bids": body["bids"]})
-                if len(self.agent.bids) == len(self.agent.drones):
-                    self.set_next_state(AUCTION)
-                    return
-
+                self.agent.bids += body["bids"]
+                
         self.set_next_state(RECEIVE_BIDS)
         return
 
@@ -118,12 +117,12 @@ class Auction(State):
                 and len(accepted_drones & set(bid["sender"])) == 0
             ):
                 accepted_bids.append(bid)
-                accepted_orders.update(set(bid["orders"]))
+                accepted_orders.update(set(bid["id_orders"]))
                 accepted_drones.add(bid["sender"])
 
         for accepted_bid in accepted_bids:
             msg = Message(to=accepted_bid["sender"])
-            msg.body = json.dumps({"type": "ACCEPT", "orders": accepted_bid["orders"]})
+            msg.body = json.dumps({"type": "ACCEPT", "id_orders": accepted_bid["orders"]})
             await self.send(msg)
 
         for declined_drone in set(self.agent.drones) - accepted_drones:

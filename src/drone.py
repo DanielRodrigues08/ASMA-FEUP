@@ -44,17 +44,18 @@ class Listen(State):
 
             case "NEW_ORDERS":
                 print(f"Drone received orders from center")
-                bids = {}
+                bids = []
+
+                # TODO: Change this
                 for order in payload["orders"]:
-                    bid = self.agent.utility(order)
-                    if bid != -1:
-                        continue
-                    bids[order] = bid
-                
-                if len(bids) == 0:
-                    print(f"Drone has no utility for the orders")
-                    self.set_next_state(LISTEN)
-                    return
+                    value = self.agent.utility(order)
+                    bids.append(
+                        {
+                            "id_orders": [order[0]],
+                            "value": value,
+                            "sender": self.agent.jid,
+                        }
+                    )
 
                 ans = Message(to=str(msg.sender))
                 ans.body = json.dumps({"type": "BIDS", "bids": bids})
@@ -80,7 +81,7 @@ class WaitingAccept(State):
     async def run(self):
 
         msg = None
-        center, order = self.agent.pending
+        center, pending_orders = self.agent.pending
 
         if delta(self.agent.timer, TIMEOUT):
             print("here")
@@ -97,10 +98,12 @@ class WaitingAccept(State):
         # print(payload)
 
         if payload["type"] == "ACCEPT":
+            for id_order in payload["id_orders"]:
+                for order in pending_orders:
+                    if order["id"] == id_order:
+                        self.agent.orders.append(order)
 
             print(f"Drone received bid from center")
-            self.agent.orders.append(order)
-            # print(order)
             ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
             ans.set_metadata("performative", "inform")
             await self.send(ans)
