@@ -3,7 +3,7 @@ import getpass
 import json
 import spade
 from spade.agent import Agent
-from spade.behaviour import PeriodicBehaviour
+from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 import random
 
@@ -11,24 +11,29 @@ class Ambient(Agent):
 
     def __init__(self, jid, password, drones = set()):
         super().__init__(jid, password)
-        self.drones    = drones        
-        self.incidents = ["Incident1", "Incident2", "Incident3"]
+        self.drones    = drones       
+        self.trigger   = -1 
+        self.incidents = ["Raining", "Windy", "Sunny"]
 
-    class InformBehav(PeriodicBehaviour):
+    class InformBehav(CyclicBehaviour):
 
         
         async def run(self):
+            
 
-            print(f"Ambient Warning Incoming at {datetime.datetime.now()}: {self.counter}")
+            if self.agent.trigger >= 0:
 
-            for drone in self.agent.drones:
+                print(f"Ambient Warning Incoming at {datetime.datetime.now()} of type {self.agent.incidents[self.agent.trigger]}")
 
-                msg          = Message(to=str(drone))
-                indx         = random.randint(0, len(self.agent.incidents)-1)
-                msg.body     = json.dumps({'type': self.agent.incidents[indx], 'degree': '2'})
-                msg.set_metadata("performative", "inform")
+                for drone in self.agent.drones:
 
-                await self.send(msg)
+                    msg          = Message(to=str(drone))
+                    msg.body     = json.dumps({'type': "AMBIENT", 'condition': self.agent.incidents[self.agent.trigger]})
+                    msg.set_metadata("performative", "inform")
+                    await self.send(msg)
+                
+                self.agent.trigger = -1
+                    
 
         async def on_end(self):
 
@@ -40,6 +45,5 @@ class Ambient(Agent):
     async def setup(self):
 
         print(f"Ambient started at {datetime.datetime.now()}")
-        start_date = datetime.datetime.now()
-        b = self.InformBehav(period=10, start_at=start_date)
+        b = self.InformBehav()
         self.add_behaviour(b)

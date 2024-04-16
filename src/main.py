@@ -120,17 +120,17 @@ def get_values():
 
 if __name__ == "__main__":
 
-    values = get_values()
-
-
+    values  = get_values()
     manager = multiprocessing.Manager()
+    proxy   = manager.list()
 
-    proxy = manager.list()
     for drone in drones:
+
         new_xy      = manager.dict()
         new_xy['x'] = 0
         new_xy['y'] = 0
         drone.xy = new_xy
+        
         proxy.append(drone.xy)
 
 

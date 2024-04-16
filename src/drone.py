@@ -173,11 +173,11 @@ class DroneAgent(Agent):
         self.battery  = (
             battery 
         )
+        
         self.support_bases   = [] if support_bases is None else support_bases
         self.pending      = None
         self.autonomy     = autonomy  
         self.velocity     = velocity  
-        self.flag          = 0
         self.max_capacity = max_capacity  
         self.timer        = datetime.datetime.now()
         self.global_timer = datetime.datetime.now() 
@@ -188,10 +188,6 @@ class DroneAgent(Agent):
         self.block_new_orders = False
         self.xy = {"x": 1, "y": 1}
 
-    def set_flag(self):
-        print(self)
-        self.flag = 1
-        print("HEY")
     def update_position(self, position):
         self.position = position
     def get_position(self):
