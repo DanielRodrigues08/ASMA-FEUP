@@ -137,6 +137,10 @@ class Rearrangement(State):
             self.set_next_state(WAITING_1_MSG)
             return 
         
+        else:
+            self.set_next_state(REARRANGEMENT)
+            return
+        
         
                   
         
@@ -168,6 +172,6 @@ class SupportBase(Agent):
         s_machine.add_transition(source=WAITING_MEETING, dest=WAITING_MEETING)
         s_machine.add_transition(source=WAITING_MEETING, dest=REARRANGEMENT)
         s_machine.add_transition(source=REARRANGEMENT, dest=WAITING_1_MSG)
-
+        s_machine.add_transition(source=REARRANGEMENT, dest=REARRANGEMENT)
 
         self.add_behaviour(s_machine)    
