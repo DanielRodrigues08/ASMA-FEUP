@@ -7,6 +7,7 @@ from spade.message import Message
 from utils import msg_orders_to_list, haversine_distance, delta
 import datetime
 from itertools import permutations
+import math
 
 LISTEN = "LISTEN"
 RETURNING_CENTER = "RETURNING_CENTER"
@@ -168,6 +169,7 @@ class DroneAgent(Agent):
         autonomy,
         velocity,
         max_capacity,
+        centers,
         support_bases=None,
     ):
 
@@ -176,13 +178,16 @@ class DroneAgent(Agent):
         self.target_queue = []
         self.delivering = False
 
+        self.centers = centers
+
         self.position = position
         self.battery = battery
         self.support_bases = [] if support_bases is None else support_bases
         self.pending = None
-        self.autonomy = autonomy
         self.velocity = velocity
+        self.max_autonomy = autonomy
         self.max_capacity = max_capacity
+        self.autonomy = autonomy
         self.timer = datetime.datetime.now()
         self.global_timer = datetime.datetime.now()
         self.current_base = None
@@ -314,79 +319,125 @@ class DroneAgent(Agent):
 
             self.agent.global_timer = datetime.datetime.now()
 
-    def utility(self, orders, center):
-        # If the drone can't carry the orders
-        # He reject the orders
+    def utility(self, orders, center_id):
+        # Check if the drone can carry the orders
         weight = sum(order["weight"] for order in orders)
         if weight > self.max_capacity:
             return -1
-        
-        # If the drone doesn't have enough autonomy
-        # He reject the orders
-        
+
+        # Check if the drone has enough autonomy
+        # To deliver the orders and return to the nearest center
+
         dist = 0
+        dist_last_order_to_center = min(
+            [
+                haversine_distance(
+                    orders[-1]["lat"], orders[-1]["long"], center["lat"], center["long"]
+                )
+                for center in self.centers.values()
+            ]
+        )
+        dist_first_order_to_center = min(
+            [
+                haversine_distance(
+                    orders[0]["lat"], orders[0]["long"], center["lat"], center["long"]
+                )
+                for center in self.centers.values()
+            ]
+        )
 
         for i in range(len(orders) - 1):
-            dist += haversine_distance(orders[i]["lat"], orders[i]["long"], orders[i + 1]["lat"], orders[i + 1]["long"])
-        
-        # Distance from the last order to the center
-        # To recharge the battery
-        dist += haversine_distance(orders[-1]["lat"], orders[-1]["long"], center["lat"], center["long"])
+            dist += haversine_distance(
+                orders[i]["lat"],
+                orders[i]["long"],
+                orders[i + 1]["lat"],
+                orders[i + 1]["long"],
+            )
 
-        dist_center_to_first_order = haversine_distance(center["lat"], center["long"], orders[0]["lat"], orders[0]["long"])
-
-        if dist + dist_center_to_first_order > self.autonomy:
+        if (
+            dist + dist_first_order_to_center + dist_last_order_to_center
+            > self.autonomy
+        ):
             return -1
 
-        # Optimize the target queue
-        # If a drone needs to go to the center
-        # Loads multiple orders
+        # Check if the drone has enough autonomy
+        # To reach to the center
 
+        if len(self.target_queue) > 0:
+            dist1 = haversine_distance(
+                self.target_queue[-1]["lat"],
+                self.target_queue[-1]["long"],
+                self.centers["center_id"]["lat"],
+                self.centers["center_id"]["long"],
+            )
+            dist_last_order_to_new_order = haversine_distance(
+                self.target_queue[-1]["lat"],
+                self.target_queue[-1]["long"],
+                orders[0]["lat"],
+                orders[0]["long"],
+            )
+        else:
+            dist1 = 0
+
+        weight1 = 0
         need_to_add_center = True
-        total_distance = 0
-        weight = 0
 
-        last_lat = orders[0]["lat"]
-        last_long = orders[0]["long"]
+        for i in range(len(orders) - 1, -1, -1):
+            dist1 += haversine_distance(
+                self.target_queue[i]["lat"],
+                self.target_queue[i]["long"],
+                self.target_queue[i - 1]["lat"],
+                self.target_queue[i - 1]["long"],
+            )
+            weight1 += self.target_queue[i]["weight"]
 
-        for i in range(len(self.agent.target_queue) - 1, -1, -1):
-            if self.agent.target_queue[i]["type"] == "CENTER":
-                if self.agent.target_queue[i]["id"] == center["id"]:
+            if self.target_queue[i]["type"] == "CENTER":
+                # Check if the drone has enough autonomy to reach the center
+                if dist1 > self.max_autonomy:
+                    return -1
+
+                if not (
+                    self.target_queue[i]["id"] != center_id
+                    or weight + weight1 > self.max_capacity
+                    or dist
+                    + dist1
+                    + dist_last_order_to_new_order
+                    + dist_last_order_to_center
+                    > self.max_autonomy
+                ):
                     need_to_add_center = False
-                break
-            
-            dist += haversine_distance(last_lat, last_long, self.agent.target_queue[i]["lat"], self.agent.target_queue[i]["long"])
-            weight += self.agent.target_queue[i]["weight"]
 
-            if dist > self.autonomy or weight > self.max_capacity:
                 break
 
-            last_lat = self.agent.target_queue[i]["lat"]
-            last_long = self.agent.target_queue[i]["long"]
-
-        temp_target_queue = self.agent.target_queue.copy()
-
-        if need_to_add_center:
-            temp_target_queue.append(center)
-        temp_target_queue.extend(orders)
+            if i == -1:
+                dist1 += haversine_distance(
+                    self.position[0],
+                    self.position[1],
+                    self.target_queue[i - 1]["lat"],
+                    self.target_queue[i - 1]["long"],
+                )
+                if dist1 > self.autonomy:
+                    return -1
+                else:
+                    break
 
         # Calculate the time to deliver all the orders
         # And the time to return to the center
 
-        time_to_deliver = 0
-        lat = self.position[0]
-        long = self.position[1]
+        dist_last_order_to_center = haversine_distance(
+            self.target_queue[-1]["lat"],
+            self.target_queue[-1]["long"],
+            self.centers["center_id"]["lat"],
+            self.centers["center_id"]["long"],
+        )
+        time_to_deliver = (
+            (dist + dist1 + dist_first_order_to_center) / self.velocity
+            if need_to_add_center
+            else (dist + dist1 + dist_last_order_to_new_order) / self.velocity
+        )
+        weight_to_deliver = weight if need_to_add_center else weight + weight1
 
-        for order in temp_target_queue:
-            time_to_deliver += haversine_distance(lat, long, order["lat"], order["long"]) / self.velocity
-            lat = order["lat"]
-            long = order["long"]
-        
-        # Return an utility score based on the time to deliver 
-        # And the weight of the orders
-
-        return time_to_deliver + weight * 2
-        
+        return time_to_deliver + weight_to_deliver * 2
 
     def add_new_order_to_queue(self, order, center):
         new_target_queue = self.target_queue.copy()

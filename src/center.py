@@ -46,16 +46,9 @@ class SendOrder(State):
 
         orders_data = {
             "type": "NEW_ORDERS",
-            "center":{
-                "id": str(self.agent.jid),
-                "type": "CENTER",
-                "lat": float(self.agent.position[0]),
-                "long": float(self.agent.position[1]),
-            },
             "orders": [
                 {
                     "id": order[0],
-                    "type": "ORDER",
                     "lat": float(order[1]),
                     "long": float(order[2]),
                     "weight": int(order[3]),
