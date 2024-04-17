@@ -93,6 +93,16 @@ class Waiting_Meeting(State):
         
 class Rearrangement(State):
     async def run(self):
+        if (len(self.agent.orders_rearrange) == 0):
+            print(f"DRONES", self.agent.drones_close)
+            for drone in self.agent.drones_close:
+                msg = Message(to=str(drone))
+                msg.body = json.dumps({"type": "REARRANGEMENT_DONE", "new_orders": []})
+                await self.send(msg)
+                
+            self.set_next_state(WAITING_1_MSG)
+            print(f"NADE FEITO")
+            return
         for drone in self.agent.drones_close:
             msg = Message(to=str(drone))
             msg.body = json.dumps({"type": "REARRANGE", "orders": self.agent.orders_rearrange})

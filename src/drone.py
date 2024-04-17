@@ -89,12 +89,14 @@ class Listen(State):
 
             case "REARRANGEMENT_DONE":
                 print(f"Drone received rearranged orders")
-                self.agent.orders = payload["new_orders"]
+                print(f"USELES:", [self.agent.orders[0]] + payload["new_orders"])
+                self.agent.orders = [self.agent.orders[0]] + payload["new_orders"]
                 print("NEW_ORDERS", self.agent.orders)
                 self.agent.block_new_orders = False
-                self.set_next_state(LISTEN)
-                return
-
+                self.agent.target = None
+                self.set_next_state(LISTEN)  
+                return 
+        
         self.set_next_state(LISTEN)
         return
 
@@ -188,6 +190,8 @@ class DroneAgent(Agent):
         self.base_collisions = []
         self.block_new_orders = False
         self.xy = {"x": 1, "y": 1}
+        self.stats = []
+        self.timer_for_stats = datetime.datetime.now()
 
     def update_position(self, position):
         self.position = position
@@ -211,6 +215,7 @@ class DroneAgent(Agent):
                 order = self.agent.orders[0]
                 self.agent.target = order["d_lat"], order["d_long"]
                 self.agent.delivering = True
+                self.agent.timer_for_stats = datetime.datetime.now()
             else:
 
                 self.agent.target = None
@@ -262,7 +267,10 @@ class DroneAgent(Agent):
                     self.agent.position = self.agent.target
 
                     if self.agent.delivering:
-                        # print("Order Delivered")
+                        print("Order Delivered")
+                        time_to_deliver = (datetime.datetime.now() - self.agent.timer_for_stats).total_seconds()
+                        self.agent.stats.append({"order": self.agent.orders[0], "time": time_to_deliver})
+                        print("STATS", self.agent.stats)
                         self.agent.orders.pop(0)
                         print(f"Drone returning to the center")
                         center, _ = self.agent.pending
@@ -283,10 +291,7 @@ class DroneAgent(Agent):
                     self.agent.target = None
 
                 base_collision = self.check_collisions_bases()
-                if (
-                    base_collision != None
-                    and base_collision not in self.agent.base_collisions
-                ):
+                if base_collision != None and base_collision not in self.agent.base_collisions and len(self.agent.orders)>1:
                     self.agent.base_collisions.append(base_collision)
                     msg = Message(
                         to=str(base_collision.jid),
