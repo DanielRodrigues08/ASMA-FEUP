@@ -118,3 +118,22 @@ def find_missing_orders(sub_list, pending_orders):
     missing_orders = [order for order in pending_orders if order['id'] not in existing_order_ids]
     return missing_orders
 
+def get_all_stats(stats):
+    total_time = 0
+    min_time = 0
+    max_time = 0
+    mean_time = 0
+    
+    times = [item['time'] for sublist in stats for item in sublist]
+    
+    mean_time = np.mean(times)
+    max_time = np.max(times)
+    min_time = np.min(times)
+    total_time = np.sum(times)
+    
+    print(f"Total time:", total_time, "s")
+    print(f"Minimum time:", min_time, "s")
+    print(f"Maximum time:", max_time, "s")
+    print(f"Mean time:", mean_time, "s")
+    
+    return total_time, min_time, max_time, mean_time

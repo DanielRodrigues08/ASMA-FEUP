@@ -1,9 +1,10 @@
 import datetime
 import json
+import spade
 from spade.agent import Agent
 from spade.behaviour import PeriodicBehaviour, State, FSMBehaviour
 from spade.message import Message
-from utils import delta
+from utils import delta, get_all_stats
 import time
 
 TIMEOUT_MESSAGES = 10
@@ -12,6 +13,7 @@ SEND_ORDER = "SEND_ORDER"
 RECEIVE_BIDS = "RECEIVE_BIDS"
 AUCTION = "AUCTION"
 WAIT_OK = "WAIT_OK"
+STATS = "STATS"
 
 
 class StateBehaviour(FSMBehaviour):
@@ -37,8 +39,14 @@ class SendOrder(State):
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
-            # print("Not sending order")
-            return
+            print("Center finished deliveries")
+            for drone in self.agent.drones:
+                msg = Message(to=str(drone))
+                msg.body = json.dumps({"type": "FINISHED"})
+                msg.set_metadata("performative", "inform")
+                await self.send(msg)  
+            self.set_next_state(STATS)
+            return        
 
         num_orders = min(self.agent.batch_size, len(self.agent.orders))
 
@@ -74,7 +82,28 @@ class SendOrder(State):
         self.set_next_state(RECEIVE_BIDS)
         return
 
+class Stats(State):    
+        async def run(self):
+            msg = await self.receive(timeout=10)
+            if msg is None:
+                self.set_next_state(STATS)
+                return
 
+            payload = json.loads(msg.body)
+            
+            match payload["type"]:
+                case "STATS":
+                    print(f"Center {self.agent.jid} received stats from {msg.sender}")
+                    self.agent.final_stats_drones.append(payload["stats"])
+                    if len(self.agent.final_stats_drones) != len(self.agent.drones):
+                        self.set_next_state(STATS)
+                        return
+                    else:
+                        get_all_stats(self.agent.final_stats_drones)
+                    return
+        
+        
+        
 class ReceiveBids(State):
 
     async def run(self):
@@ -190,6 +219,7 @@ class Center(Agent):
         self.batch_size = batch_size
         self.send_orders_timeout = send_orders_timeout
         self.pending_orders = []
+        self.final_stats_drones = []
 
         # Only For Debug
         self.first = True
@@ -202,8 +232,12 @@ class Center(Agent):
         s_machine.add_state(name=RECEIVE_BIDS, state=ReceiveBids())
         s_machine.add_state(name=AUCTION, state=Auction())
         s_machine.add_state(name=WAIT_OK, state=WaitOk())
+        s_machine.add_state(name=STATS, state=Stats())
 
         s_machine.add_transition(source=SEND_ORDER, dest=SEND_ORDER)
+        s_machine.add_transition(source=SEND_ORDER, dest=STATS)
+        s_machine.add_transition(source=STATS, dest=STATS)
+        
         s_machine.add_transition(source=RECEIVE_BIDS, dest=RECEIVE_BIDS)
 
         s_machine.add_transition(source=SEND_ORDER, dest=RECEIVE_BIDS)

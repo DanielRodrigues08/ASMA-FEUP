@@ -62,6 +62,8 @@ class Listen(State):
                 ans.set_metadata("performative", "propose")
                 await self.send(ans)
                 self.agent.pending = (msg.sender, payload["orders"])
+                if msg.sender not in self.agent.existing_centers:
+                    self.agent.existing_centers.append(msg.sender)
                 self.set_next_state(WAITING_ACCEPT)
                 return
 
@@ -89,14 +91,17 @@ class Listen(State):
 
             case "REARRANGEMENT_DONE":
                 print(f"Drone received rearranged orders")
-                print(f"USELES:", [self.agent.orders[0]] + payload["new_orders"])
                 self.agent.orders = [self.agent.orders[0]] + payload["new_orders"]
-                print("NEW_ORDERS", self.agent.orders)
                 self.agent.block_new_orders = False
                 self.agent.target = None
                 self.set_next_state(LISTEN)  
                 return 
-        
+            
+            case "FINISHED":
+                self.agent.centers_over += 1
+                self.set_next_state(LISTEN)
+                return
+            
         self.set_next_state(LISTEN)
         return
 
@@ -168,6 +173,7 @@ class DroneAgent(Agent):
         autonomy,
         velocity,
         max_capacity,
+        num_centers,
         support_bases=None,
         orders=None,
     ):
@@ -182,6 +188,7 @@ class DroneAgent(Agent):
         self.autonomy = autonomy
         self.velocity = velocity
         self.max_capacity = max_capacity
+        self.num_centers = num_centers
         self.timer = datetime.datetime.now()
         self.global_timer = datetime.datetime.now()
         self.target = None
@@ -191,7 +198,9 @@ class DroneAgent(Agent):
         self.block_new_orders = False
         self.xy = {"x": 1, "y": 1}
         self.stats = []
-        self.timer_for_stats = datetime.datetime.now()
+        self.timer_for_stats = None
+        self.centers_over = 0
+        self.existing_centers = []
 
     def update_position(self, position):
         self.position = position
@@ -304,6 +313,17 @@ class DroneAgent(Agent):
             else:
 
                 self.find_target()
+
+            if self.agent.target == None and len(self.agent.orders) == 0 and self.agent.centers_over == self.agent.num_centers:
+                print("Drone finished all deliveries")
+                for center in self.agent.existing_centers:
+                    msg = Message(
+                        to=str(center),
+                        body=json.dumps({"type": "STATS", "stats": self.agent.stats}),
+                    )
+                    msg.set_metadata("performative", "inform")
+                    await self.send(msg)    
+                await self.agent.stop()
 
             self.agent.global_timer = datetime.datetime.now()
 

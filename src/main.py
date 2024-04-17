@@ -52,7 +52,8 @@ def create_system():
                 drone_data["autonomy"],
                 drone_data["velocity"],
                 drone_data["capacity"],
-                support_bases,
+                len(centers_data),
+                support_bases
             )
         )
 
