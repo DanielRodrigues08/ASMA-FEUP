@@ -5,10 +5,13 @@ import tkinter as tk
 def update_event():
     print("Event updated")
 
-def update_drone():
+def update_drone(obj):
+    print(obj)
+    obj.value = True
     print("Drone updated")
 
-def update_center():
+def update_center(obj):
+    obj.value = True
     print("Center updated")
 
 def update_base():
@@ -36,6 +39,7 @@ methods = {
 }
 
 properties = {
+
     'drone' : change_drone,
     'center': change_center,
     'base'  : change_base,
@@ -73,7 +77,7 @@ def create_buttons(root, objects, row):
     return buttons
 
 
-def create_dropdown(root, objects, row):
+def create_dropdown(root, stands, objects, row, input = False):
 
     var      = tk.StringVar()
     dropdown = tk.OptionMenu(root, var, *objects)
@@ -82,8 +86,9 @@ def create_dropdown(root, objects, row):
 
     def callback(*args):
 
-        create_text_input(objects[var.get()], root, row + 1)
-        button = tk.Button(root, text=var.get(), command=lambda: methods[objects[var.get()]["type"]]())
+        if input:
+            create_text_input(objects[var.get()], root, row + 1)
+        button = tk.Button(root, text=var.get(), command=lambda: methods[objects[var.get()]["type"]](stands[objects[var.get()]["id"]]))
         button.grid(row=row +2, column=0)
         
     
@@ -111,66 +116,20 @@ def destroy_buttons(button):
     button.destroy()
 
 
-def create_window(drones=None, func=None):
+def create_window(drones_stands, center_stands, ambient=None):
 
-    drones = {
 
-        "Drone 1": {
-            "status": "on",
-            "type": "drone"
-        },
+    drones = {}
 
-        "Drone 2": {
-            "status": "on",
-            "type": "drone"
-        },
+    for i in range(len(drones_stands)):
+        drones[f'Drone {i}'] = {"status": drones_stands[i], "id": i, "type": "drone"}
 
-        "Drone 3": {
-            "status": "off",
-            "type": "drone"
-        },
+    centers = {}
 
-    }
-
-    centers = {
-            
-        "Center 1": {
-            "status": "on",
-            "type": "center"
-        },
-
-        "Center 2": {
-            "status": "on",
-            "type": "center"
-        },
-
-        "Center 3": {
-            "status": "off",
-            "type": "center"
-        },
-
-    }
+    for i in range(len(center_stands)):
+        centers[f'Center {i}'] = {"status": center_stands[i], "type": "center"}
 
     
-    bases = {
-            
-        "Base 1": {
-            "status": "on",
-            "type": "base"
-        },
-
-        "Base 2": {
-            "status": "on",
-            "type": "base"
-        },
-
-        "Base 3": {
-            "status": "off",
-            "type": "base"
-        },
-
-    }
-
     events = {
         'Raining': {
             "status": "off",
@@ -188,16 +147,13 @@ def create_window(drones=None, func=None):
         },
     }
 
-    func(2)
-
-
     root = tk.Tk()
     root.title("Drone Control")
     root.geometry("500x500")
 
-    create_dropdown(root, drones,  0)
-    create_dropdown(root, centers, 3)
-    create_dropdown(root, bases,   6)
+    create_dropdown(root, drones_stands, drones,  0)
+    create_dropdown(root, center_stands, centers, 3, True)
+    #create_dropdown(root, bases,   6)
     create_buttons(root, events,  9)
 
     root.mainloop()

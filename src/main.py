@@ -155,11 +155,25 @@ if __name__ == "__main__":
         new_xy['x'] = 0
         new_xy['y'] = 0
         drone.xy = new_xy
-        
+        drone.standby = multiprocessing.Value('b', False)
         proxy.append(drone.xy)
+    
+
+    
+
+    for center in centers:
+        center.standby = multiprocessing.Value('b', False)
+
+    drones_stands  = [drone.standby for drone in drones]
+    centers_stands = [center.standby for center in centers]
+
+    ambient.trigger = manager.dict()
+    ambient.trigger['Raining'] = False
+    ambient.trigger['Windy'] = False
+    ambient.trigger['Sunny'] = False
 
 
-    p1 = multiprocessing.Process(target=create_window, args=(None, update_position))
+    p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
     p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
 
     p1.start()    

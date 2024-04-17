@@ -11,8 +11,10 @@ class Ambient(Agent):
 
     def __init__(self, jid, password, drones = set()):
         super().__init__(jid, password)
-        self.drones    = drones       
-        self.trigger   = -1 
+        self.drones    = drones   
+        
+
+        self.trigger   = {}
         self.incidents = ["Raining", "Windy", "Sunny"]
 
     class InformBehav(CyclicBehaviour):
@@ -20,20 +22,24 @@ class Ambient(Agent):
         
         async def run(self):
             
+            prevent_key = None
+            for key in self.agent.trigger:
+                if self.agent.trigger[key] == True:
+                    self.agent.trigger[key] = False
+                    prevent_key = key
+                    break
 
-            if self.agent.trigger >= 0:
+            if prevent_key:
 
-                print(f"Ambient Warning Incoming at {datetime.datetime.now()} of type {self.agent.incidents[self.agent.trigger]}")
+                print(f"Ambient Warning Incoming at {datetime.datetime.now()} of type {prevent_key}")
 
                 for drone in self.agent.drones:
 
                     msg          = Message(to=str(drone))
-                    msg.body     = json.dumps({'type': "AMBIENT", 'condition': self.agent.incidents[self.agent.trigger]})
+                    msg.body     = json.dumps({'type': "AMBIENT", 'condition': prevent_key})
                     msg.set_metadata("performative", "inform")
                     await self.send(msg)
-                
-                self.agent.trigger = -1
-                    
+                                    
 
         async def on_end(self):
 

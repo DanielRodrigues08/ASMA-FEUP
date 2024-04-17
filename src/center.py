@@ -14,6 +14,7 @@ RECEIVE_BIDS = "RECEIVE_BIDS"
 AUCTION = "AUCTION"
 WAIT_OK = "WAIT_OK"
 STATS = "STATS"
+STANDBY = "STANDBY"
 
 
 class StateBehaviour(FSMBehaviour):
@@ -25,10 +26,24 @@ class StateBehaviour(FSMBehaviour):
         # print(f"FSM finished at state {self.current_state}")
         await self.agent.stop()
 
+class Standby(State):
+    
+    async def run(self):
+
+        if self.agent.standby.value:
+            self.set_next_state(STANDBY)
+            return
+        
+        self.set_next_state(SEND_ORDER)
+        return
 
 class SendOrder(State):
 
     async def run(self):
+
+        if self.agent.standby.value:
+            self.set_next_state(STANDBY)
+            return
 
         if self.agent.first:
             self.agent.first = False
@@ -83,23 +98,24 @@ class SendOrder(State):
         return
 
 class Stats(State):    
-        async def run(self):
-            msg = await self.receive(timeout=10)
-            if msg is None:
-                self.set_next_state(STATS)
-                return
+    async def run(self):
+        msg = await self.receive(timeout=10)
+        if msg is None:
+            self.set_next_state(STATS)
+            return
 
-            payload = json.loads(msg.body)
-            
-            match payload["type"]:
-                case "STATS":
-                    print(f"Center {self.agent.jid} received stats from {msg.sender}")
-                    self.agent.final_stats_drones.append(payload["stats"])
-                    if len(self.agent.final_stats_drones) != len(self.agent.drones):
-                        self.set_next_state(STATS)
-                        return
-                    else:
-                        get_all_stats(self.agent.final_stats_drones)
+        payload = json.loads(msg.body)
+        
+        match payload["type"]:
+            case "STATS":
+                print(f"Center {self.agent.jid} received stats from {msg.sender}")
+                self.agent.final_stats_drones.append(payload["stats"])
+                if len(self.agent.final_stats_drones) != len(self.agent.drones):
+                    self.set_next_state(STATS)
+                    return
+                else:
+                    get_all_stats(self.agent.final_stats_drones)
+                    await self.agent.stop()
                     return
         
         
@@ -214,6 +230,7 @@ class Center(Agent):
         super().__init__(jid, password)
         self.position = position
         self.orders = orders
+        self.standby = False
         self.drones = drones
         self.timer = datetime.datetime.now()
         self.batch_size = batch_size
@@ -233,11 +250,17 @@ class Center(Agent):
         s_machine.add_state(name=AUCTION, state=Auction())
         s_machine.add_state(name=WAIT_OK, state=WaitOk())
         s_machine.add_state(name=STATS, state=Stats())
+        s_machine.add_state(name=STANDBY, state=Standby())
 
         s_machine.add_transition(source=SEND_ORDER, dest=SEND_ORDER)
         s_machine.add_transition(source=SEND_ORDER, dest=STATS)
         s_machine.add_transition(source=STATS, dest=STATS)
-        
+
+        s_machine.add_transition(source=STANDBY, dest=STANDBY)
+        s_machine.add_transition(source=STANDBY, dest=SEND_ORDER)
+        s_machine.add_transition(source=SEND_ORDER, dest=STANDBY)
+
+
         s_machine.add_transition(source=RECEIVE_BIDS, dest=RECEIVE_BIDS)
 
         s_machine.add_transition(source=SEND_ORDER, dest=RECEIVE_BIDS)

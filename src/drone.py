@@ -13,7 +13,7 @@ RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY = "NO_BATTERY"
 WAITING_ACCEPT = "WAITING_ACCEPT"
 TIMEOUT = 20
-
+STANDBY = "STANDBY"
 
 class StateBehaviour(FSMBehaviour):
     async def on_start(self):
@@ -24,9 +24,12 @@ class StateBehaviour(FSMBehaviour):
         # print(f"FSM finished at state {self.current_state}")
         await self.agent.stop()
 
-
+    
 class Listen(State):
     async def run(self):
+        if self.agent.standby.value:
+            self.set_next_state(STANDBY)
+            return
         self.agent.timer = datetime.datetime.now()
 
         if self.agent.battery == 0:
@@ -104,7 +107,15 @@ class Listen(State):
             
         self.set_next_state(LISTEN)
         return
+    
+class Standby(State):
+    async def run(self):
 
+        if self.agent.standby.value:
+            self.set_next_state(STANDBY)
+            return
+        self.set_next_state(LISTEN)
+        return
 
 class WaitingAccept(State):
 
@@ -186,6 +197,7 @@ class DroneAgent(Agent):
         self.support_bases = [] if support_bases is None else support_bases
         self.pending = None
         self.autonomy = autonomy
+        self.standby  = False
         self.velocity = velocity
         self.max_capacity = max_capacity
         self.num_centers = num_centers
@@ -389,7 +401,11 @@ class DroneAgent(Agent):
         s_machine.add_state(name=WAITING_ACCEPT, state=WaitingAccept())
         s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
         s_machine.add_state(name=NO_BATTERY, state=NoBattery())
+        s_machine.add_state(name=STANDBY, state=Standby())
 
+        s_machine.add_transition(source=STANDBY, dest=STANDBY)
+        s_machine.add_transition(source=STANDBY, dest=LISTEN)
+        s_machine.add_transition(source=LISTEN, dest=STANDBY)
         s_machine.add_transition(source=WAITING_ACCEPT, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=WAITING_ACCEPT)
