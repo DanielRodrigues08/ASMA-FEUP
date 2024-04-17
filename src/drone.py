@@ -94,9 +94,9 @@ class Listen(State):
                 print("NEW_ORDERS", self.agent.orders)
                 self.agent.block_new_orders = False
                 self.agent.target = None
-                self.set_next_state(LISTEN)  
-                return 
-        
+                self.set_next_state(LISTEN)
+                return
+
         self.set_next_state(LISTEN)
         return
 
@@ -169,12 +169,13 @@ class DroneAgent(Agent):
         velocity,
         max_capacity,
         support_bases=None,
-        orders=None,
     ):
 
         super().__init__(jid, password)
 
-        self.orders = [] if orders is None else orders
+        self.target_queue = []
+        self.delivering = False
+
         self.position = position
         self.battery = battery
         self.support_bases = [] if support_bases is None else support_bases
@@ -184,8 +185,6 @@ class DroneAgent(Agent):
         self.max_capacity = max_capacity
         self.timer = datetime.datetime.now()
         self.global_timer = datetime.datetime.now()
-        self.target = None
-        self.delivering = False
         self.current_base = None
         self.base_collisions = []
         self.block_new_orders = False
@@ -268,8 +267,12 @@ class DroneAgent(Agent):
 
                     if self.agent.delivering:
                         print("Order Delivered")
-                        time_to_deliver = (datetime.datetime.now() - self.agent.timer_for_stats).total_seconds()
-                        self.agent.stats.append({"order": self.agent.orders[0], "time": time_to_deliver})
+                        time_to_deliver = (
+                            datetime.datetime.now() - self.agent.timer_for_stats
+                        ).total_seconds()
+                        self.agent.stats.append(
+                            {"order": self.agent.orders[0], "time": time_to_deliver}
+                        )
                         print("STATS", self.agent.stats)
                         self.agent.orders.pop(0)
                         print(f"Drone returning to the center")
@@ -291,7 +294,11 @@ class DroneAgent(Agent):
                     self.agent.target = None
 
                 base_collision = self.check_collisions_bases()
-                if base_collision != None and base_collision not in self.agent.base_collisions and len(self.agent.orders)>1:
+                if (
+                    base_collision != None
+                    and base_collision not in self.agent.base_collisions
+                    and len(self.agent.orders) > 1
+                ):
                     self.agent.base_collisions.append(base_collision)
                     msg = Message(
                         to=str(base_collision.jid),
@@ -307,31 +314,93 @@ class DroneAgent(Agent):
 
             self.agent.global_timer = datetime.datetime.now()
 
-    def utility(self, order):
-        distance_1 = haversine_distance(
-            self.position[0], self.position[1], order["o_lat"], order["o_long"]
-        )
-        distance_2 = haversine_distance(
-            order["o_lat"], order["o_long"], order["d_lat"], order["d_long"]
-        )
+    def utility(self, orders, center):
+        # If the drone can't carry the orders
+        # He reject the orders
+        weight = sum(order["weight"] for order in orders)
+        if weight > self.max_capacity:
+            return -1
+        
+        # If the drone doesn't have enough autonomy
+        # He reject the orders
+        
+        dist = 0
 
-        total_distance = distance_1 + distance_2
+        for i in range(len(orders) - 1):
+            dist += haversine_distance(orders[i]["lat"], orders[i]["long"], orders[i + 1]["lat"], orders[i + 1]["long"])
+        
+        # Distance from the last order to the center
+        # To recharge the battery
+        dist += haversine_distance(orders[-1]["lat"], orders[-1]["long"], center["lat"], center["long"])
 
-        if total_distance > self.autonomy:
+        dist_center_to_first_order = haversine_distance(center["lat"], center["long"], orders[0]["lat"], orders[0]["long"])
+
+        if dist + dist_center_to_first_order > self.autonomy:
             return -1
 
-        utility_distance = self.autonomy - total_distance
+        # Optimize the target queue
+        # If a drone needs to go to the center
+        # Loads multiple orders
 
-        current_capacity = self.max_capacity
-        for order_assigned in self.orders:
-            current_capacity -= order_assigned["weight"]
+        need_to_add_center = True
+        total_distance = 0
+        weight = 0
 
-        utility_capacity = current_capacity - order["weight"]
-        if utility_capacity < 0:
-            return -1
+        last_lat = orders[0]["lat"]
+        last_long = orders[0]["long"]
 
-        utility_final_score = utility_distance + utility_capacity * 2
-        return utility_final_score
+        for i in range(len(self.agent.target_queue) - 1, -1, -1):
+            if self.agent.target_queue[i]["type"] == "CENTER":
+                if self.agent.target_queue[i]["id"] == center["id"]:
+                    need_to_add_center = False
+                break
+            
+            dist += haversine_distance(last_lat, last_long, self.agent.target_queue[i]["lat"], self.agent.target_queue[i]["long"])
+            weight += self.agent.target_queue[i]["weight"]
+
+            if dist > self.autonomy or weight > self.max_capacity:
+                break
+
+            last_lat = self.agent.target_queue[i]["lat"]
+            last_long = self.agent.target_queue[i]["long"]
+
+        temp_target_queue = self.agent.target_queue.copy()
+
+        if need_to_add_center:
+            temp_target_queue.append(center)
+        temp_target_queue.extend(orders)
+
+        # Calculate the time to deliver all the orders
+        # And the time to return to the center
+
+        time_to_deliver = 0
+        lat = self.position[0]
+        long = self.position[1]
+
+        for order in temp_target_queue:
+            time_to_deliver += haversine_distance(lat, long, order["lat"], order["long"]) / self.velocity
+            lat = order["lat"]
+            long = order["long"]
+        
+        # Return an utility score based on the time to deliver 
+        # And the weight of the orders
+
+        return time_to_deliver + weight * 2
+        
+
+    def add_new_order_to_queue(self, order, center):
+        new_target_queue = self.target_queue.copy()
+
+        need_to_add_center = False
+
+        for i in range(len(new_target_queue) - 1, 0, -1):
+            pass
+
+        if need_to_add_center:
+            new_target_queue.append(center)
+        new_target_queue.append(order)
+
+        return new_target_queue
 
     def rearrange_orders_base(self, pending_orders):
         possible_combos = []
