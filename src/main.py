@@ -169,8 +169,8 @@ if __name__ == "__main__":
 
     ambient.trigger = manager.dict()
     ambient.trigger['Raining'] = False
-    ambient.trigger['Windy'] = False
-    ambient.trigger['Sunny'] = False
+    ambient.trigger['Windy']   = False
+    ambient.trigger['Sunny']   = False
 
 
     p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))

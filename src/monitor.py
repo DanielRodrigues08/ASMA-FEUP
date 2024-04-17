@@ -46,13 +46,18 @@ properties = {
 }
 
 
-def throw_event(event):
+def throw_event(key, objects, ambient):
 
-    if event["status"] == "on":
-        event["status"] = "off"
+    print(key)
+
+    if objects[key]["status"] == "on":
+        objects[key]["status"] = "off"
+        ambient[key] = False
     else:
-        event["status"] = "on"
-    print(event["status"])
+        objects[key]["status"] = "on"
+        ambient[key] = True
+
+    print(objects[key]["status"])
 
 def update_element(objects, key):
 
@@ -64,12 +69,13 @@ def update_element(objects, key):
 
 
 
-def create_buttons(root, objects, row):
+def create_buttons(root, ambient, objects, row):
 
     buttons = []
     counter = 0
     for key in objects:
-        button = tk.Button(root, text=key, command=lambda: throw_event(objects[key]))
+        print(key)
+        button = tk.Button(root, text=key, command=lambda: throw_event(objects[key], ambient))
         button.grid(row=row, column=counter)
         counter += 1
         buttons.append(button)
@@ -133,19 +139,20 @@ def create_window(drones_stands, center_stands, ambient=None):
     events = {
         'Raining': {
             "status": "off",
-            "type": "event"
+            "type": "Raining"
         },
 
         'Sunny': {
             "status": "on",
-            "type": "event"
+            "type": "Sunny"
         },
 
         'Windy': {
             "status": "off",
-            "type": "event"
+            "type": "Windy"
         },
     }
+
 
     root = tk.Tk()
     root.title("Drone Control")
@@ -153,7 +160,6 @@ def create_window(drones_stands, center_stands, ambient=None):
 
     create_dropdown(root, drones_stands, drones,  0)
     create_dropdown(root, center_stands, centers, 3, True)
-    #create_dropdown(root, bases,   6)
-    create_buttons(root, events,  9)
+    create_buttons(root, ambient, events,  9)
 
     root.mainloop()
