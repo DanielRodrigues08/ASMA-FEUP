@@ -29,6 +29,7 @@ class StateBehaviour(FSMBehaviour):
 
 class Listen(State):
     async def run(self):
+
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
@@ -38,7 +39,7 @@ class Listen(State):
             self.set_next_state(NO_BATTERY)
             return
 
-        msg = await self.receive(timeout=5)
+        msg = await self.receive(timeout=0)
 
         if msg is None:
             self.set_next_state(LISTEN)
@@ -49,12 +50,11 @@ class Listen(State):
         match payload["type"]:
 
             case "NEW_ORDERS":
-
+                print("CASRALHO")
                 bids = []
 
                 # TODO: Change this
                 for order in payload["orders"]:
-                    print(order)
                     value = self.agent.utility([order], str(msg.sender).split("@")[0])
                     bids.append(
                         {
@@ -69,8 +69,6 @@ class Listen(State):
                 ans.set_metadata("performative", "propose")
                 await self.send(ans)
                 self.agent.pending = (msg.sender, payload["orders"])
-                if msg.sender not in self.agent.existing_centers:
-                    self.agent.existing_centers.append(msg.sender)
                 self.set_next_state(WAITING_ACCEPT)
                 return
 
@@ -120,6 +118,8 @@ class Listen(State):
 class Standby(State):
     async def run(self):
 
+        print(f"Drone is on standby")
+
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
@@ -131,15 +131,15 @@ class WaitingAccept(State):
 
     async def run(self):
 
+
         msg = None
         center, pending_orders = self.agent.pending
 
-        if delta(self.agent.timer, TIMEOUT):
-            await asyncio.sleep(1)
+        if delta(self.agent.timer, TIMEOUT * 10):
             self.set_next_state(LISTEN)
             return
 
-        msg = await self.receive(timeout=2)
+        msg = await self.receive(timeout=0)
         if not msg or msg.sender != center:
             self.set_next_state(WAITING_ACCEPT)
             return
@@ -147,13 +147,17 @@ class WaitingAccept(State):
         payload = json.loads(msg.body)
 
         if payload["type"] == "ACCEPT":
+
             for id_order in payload["id_orders"]:
                 for order in pending_orders:
                     if order["id"] == id_order:
+                        print("AAA")
+                        print(order)
+                        print(self.agent.centers[str(center).split("@")[0]]['lat'])
                         self.agent.orders.append(order)
                         self.agent.target_queue.append((self.agent.centers[str(center).split("@")[0]]['lat'],
-                                                      self.agent.centers[str(center).split("@")[0]]['long']))
-                        self.agent.target_queue.append(order)
+                                                      self.agent.centers[str(center).split("@")[0]]['lon']))
+                        self.agent.target_queue.append((order['lat'], order['lon']))
 
 
             ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
@@ -228,7 +232,6 @@ class DroneAgent(Agent):
         self.stats = []
         self.timer_for_stats = None
         self.centers_over = 0
-        self.existing_centers = []
 
     def update_position(self, position):
         self.position = position
@@ -238,12 +241,10 @@ class DroneAgent(Agent):
 
     class UpdatePosition(CyclicBehaviour):
         async def on_start(self):
-            # print(f"Drone starts working")
-            # print(self.agent.position)
+
             pass
 
         async def on_end(self):
-            # print(f"Drone finished working")
             await self.agent.stop()
 
         def check_collisions_bases(self):
@@ -255,7 +256,6 @@ class DroneAgent(Agent):
                         base.position[0],
                         base.position[1],
                     )
-                    < 7
                 ):
                     return base
             return None
@@ -340,9 +340,9 @@ class DroneAgent(Agent):
                 and self.agent.centers_over == self.agent.num_centers
             ):
                 print("Drone finished all deliveries")
-                for center in self.agent.existing_centers:
+                for center in self.agent.centers:
                     msg = Message(
-                        to=str(center),
+                        to=str(center) + "@localhost",
                         body=json.dumps({"type": "STATS", "stats": self.agent.stats}),
                     )
                     msg.set_metadata("performative", "inform")
@@ -364,7 +364,7 @@ class DroneAgent(Agent):
         dist_last_order_to_center = min(
             [
                 haversine_distance(
-                    orders[-1]["lat"], orders[-1]["long"], center["lat"], center["long"]
+                    orders[-1]["lat"], orders[-1]["lon"], center["lat"], center["lon"]
                 )
                 for center in self.centers.values()
             ]
@@ -372,7 +372,7 @@ class DroneAgent(Agent):
         dist_first_order_to_center = min(
             [
                 haversine_distance(
-                    orders[0]["lat"], orders[0]["long"], center["lat"], center["long"]
+                    orders[0]["lat"], orders[0]["lon"], center["lat"], center["lon"]
                 )
                 for center in self.centers.values()
             ]
@@ -381,9 +381,9 @@ class DroneAgent(Agent):
         for i in range(len(orders) - 1):
             dist += haversine_distance(
                 orders[i]["lat"],
-                orders[i]["long"],
+                orders[i]["lon"],
                 orders[i + 1]["lat"],
-                orders[i + 1]["long"],
+                orders[i + 1]["lon"],
             )
 
         if (
@@ -397,17 +397,17 @@ class DroneAgent(Agent):
 
         if len(self.target_queue) > 0:
             dist1 = haversine_distance(
-                self.target_queue[-1]["lat"],
-                self.target_queue[-1]["long"],
+                self.target_queue[-1][0],
+                self.target_queue[-1][1],
                 self.centers[center_id]["lat"],
-                self.centers[center_id]["long"],
+                self.centers[center_id]["lon"],
             )
 
             dist_last_order_to_new_order = haversine_distance(
-                self.target_queue[-1]["lat"],
-                self.target_queue[-1]["long"],
+                self.target_queue[-1][0],
+                self.target_queue[-1][1],
                 orders[0]["lat"],
-                orders[0]["long"],
+                orders[0]["lon"],
             )
 
         else:
@@ -415,8 +415,9 @@ class DroneAgent(Agent):
                 self.position[0],
                 self.position[1],
                 self.centers[center_id]["lat"],
-                self.centers[center_id]["long"],
+                self.centers[center_id]["lon"],
             )
+
 
         weight1 = 0
         need_to_add_center = True
@@ -427,16 +428,21 @@ class DroneAgent(Agent):
                 break
 
             dist1 += haversine_distance(
-                self.target_queue[i]["lat"],
-                self.target_queue[i]["long"],
-                self.target_queue[i - 1]["lat"],
-                self.target_queue[i - 1]["long"],
+                self.target_queue[i][0],
+                self.target_queue[i][1],
+                self.target_queue[i - 1][0],
+                self.target_queue[i - 1][1],
             )
 
-            weight1 += self.target_queue[i]["weight"]
 
-            if self.target_queue[i]["type"] == "CENTER":
+        # TODO add types to target
+           # weight1 += self.target_queue[i]["weight"]
+
+            #if self.target_queue[i]["type"] == "CENTER":
                 # Check if the drone has enough autonomy to reach the center
+                #TODO remove
+            if False:
+
                 if dist1 > self.max_autonomy:
                     return -1
 
@@ -457,8 +463,8 @@ class DroneAgent(Agent):
                 dist1 += haversine_distance(
                     self.position[0],
                     self.position[1],
-                    self.target_queue[i - 1]["lat"],
-                    self.target_queue[i - 1]["long"],
+                    self.target_queue[i - 1][0],
+                    self.target_queue[i - 1][1],
                 )
                 if dist1 > self.autonomy:
                     return -1

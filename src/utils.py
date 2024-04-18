@@ -28,7 +28,7 @@ def csv_centers_to_system(csv):
 def centers_to_dict(centers):
     centers_data = []
     for center in centers:
-        center_data = {'id': center[0], 'lat': center[1], 'long': center[2]}
+        center_data = {'id': center[0], 'lat': center[1], 'lon': center[2]}
         centers_data.append(center_data)
     return centers_data
 
@@ -77,7 +77,7 @@ def position_drones(drones, center):
 
         for j in range(len(center)):
             if drone[4] == center[j]['id']:
-                drone_data['position'] = (center[j]['lat'],center[j]['long'])
+                drone_data['position'] = (center[j]['lat'],center[j]['lon'])
                 break
 
         drones_data.append(drone_data)
