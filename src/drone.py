@@ -50,7 +50,6 @@ class Listen(State):
         match payload["type"]:
 
             case "NEW_ORDERS":
-                print("CASRALHO")
                 bids = []
 
                 # TODO: Change this
@@ -151,9 +150,6 @@ class WaitingAccept(State):
             for id_order in payload["id_orders"]:
                 for order in pending_orders:
                     if order["id"] == id_order:
-                        print("AAA")
-                        print(order)
-                        print(self.agent.centers[str(center).split("@")[0]]['lat'])
                         self.agent.orders.append(order)
                         self.agent.target_queue.append((self.agent.centers[str(center).split("@")[0]]['lat'],
                                                       self.agent.centers[str(center).split("@")[0]]['lon']))
@@ -479,7 +475,6 @@ class DroneAgent(Agent):
         )
 
         weight_to_deliver = weight if need_to_add_center else weight + weight1
-        print("UTILITY", time_to_deliver + weight_to_deliver * 2)
         return time_to_deliver + weight_to_deliver * 2
 
 

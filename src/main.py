@@ -171,11 +171,11 @@ if __name__ == "__main__":
 
 
     p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
-    #p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
+    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
 
     p1.start()    
-    #p3.start()
+    p3.start()
     run_spade()
     p1.join()
-    #p3.join()
+    p3.join()
 
