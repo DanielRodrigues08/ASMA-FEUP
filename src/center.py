@@ -7,7 +7,7 @@ from spade.message import Message
 from utils import delta, get_all_stats
 import time
 
-TIMEOUT_MESSAGES = 10
+TIMEOUT_MESSAGES = 1
 
 SEND_ORDER = "SEND_ORDER"
 RECEIVE_BIDS = "RECEIVE_BIDS"

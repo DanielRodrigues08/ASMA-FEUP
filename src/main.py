@@ -40,7 +40,9 @@ def create_system():
         "support_base@localhost", "support_base", (18.995000, 72.826000)
     )
     support_bases.append(support_base)
-
+    print(centers_data)
+    centers_dict = {center["id"]: {"lat": center["lat"], "long": center["long"]} for center in centers_data}
+    print(centers_dict)
     for drone_data in drones_data:
         
         drones.append(
@@ -52,7 +54,7 @@ def create_system():
                 drone_data["autonomy"],
                 drone_data["velocity"],
                 drone_data["capacity"],
-                (centers_data),
+                centers_dict,
                 support_bases
             )
         )
@@ -91,7 +93,6 @@ async def main():
     for center in centers:
         await center.start(auto_register=True)
 
-    counter = 6000
     for drone in drones:
         await drone.start(auto_register=True)
     for base in support_bases:
@@ -173,12 +174,12 @@ if __name__ == "__main__":
     ambient.trigger['Sunny']   = False
 
 
-    #p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
-    #p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
+    p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
+    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
 
-   # p1.start()    
-   # p3.start()
+    p1.start()    
+    p3.start()
     run_spade()
-   #p1.join()
-   # p3.join()
+    p1.join()
+    p3.join()
 

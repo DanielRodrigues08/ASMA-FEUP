@@ -48,7 +48,7 @@ properties = {
 
 def throw_event(key, objects, ambient):
 
-    print(key)
+    print(key, objects, objects[key]["type"])
 
     if objects[key]["status"] == "on":
         objects[key]["status"] = "off"
@@ -74,8 +74,7 @@ def create_buttons(root, ambient, objects, row):
     buttons = []
     counter = 0
     for key in objects:
-        print(key)
-        button = tk.Button(root, text=key, command=lambda: throw_event(objects[key], ambient))
+        button = tk.Button(root, text=key, command=lambda key=key: throw_event(key, objects, ambient))
         button.grid(row=row, column=counter)
         counter += 1
         buttons.append(button)

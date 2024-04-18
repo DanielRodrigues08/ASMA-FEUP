@@ -21,7 +21,7 @@ class Waiting_1_msg(State):
     async def run(self):
         self.agent.drones_close = []
         self.agent.orders_rearrange = []
-        msg = await self.receive(timeout=5)
+        msg = await self.receive()
         
         if msg is None:
             self.set_next_state(WAITING_1_MSG)
