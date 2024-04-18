@@ -74,7 +74,7 @@ class Listen(State):
             case "UPDATE_ORDERS":
 
                 self.agent.target_queue.append(
-                    payload["position"][0], payload["position"][1]
+                    {'type': 'order', 'lat': payload["position"][0], 'lon':payload["position"][1], 'weight': payload["weight"]}
                 )
                 self.agent.delivering = False
                 self.agent.current_base = msg.sender
@@ -151,9 +151,9 @@ class WaitingAccept(State):
                 for order in pending_orders:
                     if order["id"] == id_order:
                         self.agent.orders.append(order)
-                        self.agent.target_queue.append((self.agent.centers[str(center).split("@")[0]]['lat'],
-                                                      self.agent.centers[str(center).split("@")[0]]['lon']))
-                        self.agent.target_queue.append((order['lat'], order['lon']))
+                        self.agent.target_queue.append({'type':'center', 'id': str(center).split('@')[0],'lat': self.agent.centers[str(center).split("@")[0]]['lat'],
+                                                      'lon':self.agent.centers[str(center).split("@")[0]]['lon']})
+                        self.agent.target_queue.append({'type':'order', 'lat':order['lat'], 'lon':order['lon'], 'weight':order['weight']})
 
 
             ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
@@ -170,9 +170,9 @@ class WaitingAccept(State):
 class ReturningCenter(State):
 
     async def run(self):
-        # print(f"Drone returning to the center")
+        print(f"Drone returning to the center")
         center, _ = self.agent.pending
-
+        #TODO: Change this
         self.agent.target_queue.append(center)
         self.agent.delivering = False
 
@@ -263,7 +263,7 @@ class DroneAgent(Agent):
 
             if len(self.agent.target_queue) > 0:
 
-                target = self.agent.target_queue[0]
+                target = (self.agent.target_queue[0]['lat'], self.agent.target_queue[0]['lon'])
                 delta = (
                     datetime.datetime.now() - self.agent.global_timer
                 ).total_seconds()
@@ -374,6 +374,7 @@ class DroneAgent(Agent):
             ]
         )
 
+        #dist = distancia entre as orders todas
         for i in range(len(orders) - 1):
             dist += haversine_distance(
                 orders[i]["lat"],
@@ -392,21 +393,23 @@ class DroneAgent(Agent):
         # To reach to the center
 
         if len(self.target_queue) > 0:
+            #distancia para ir buscar a nova order ao centro
             dist1 = haversine_distance(
-                self.target_queue[-1][0],
-                self.target_queue[-1][1],
+                self.target_queue[-1]['lat'],
+                self.target_queue[-1]['lon'], 
                 self.centers[center_id]["lat"],
                 self.centers[center_id]["lon"],
             )
-
+            #distancia para entregar a nova order a seguir a ultima da target queue
             dist_last_order_to_new_order = haversine_distance(
-                self.target_queue[-1][0],
-                self.target_queue[-1][1],
+                self.target_queue[-1]['lat'],
+                self.target_queue[-1]['lon'],
                 orders[0]["lat"],
                 orders[0]["lon"],
             )
 
         else:
+            #distancia para ir buscar a nova order caso n tenha nenhuma na target queue
             dist1 = haversine_distance(
                 self.position[0],
                 self.position[1],
@@ -424,15 +427,16 @@ class DroneAgent(Agent):
                 break
 
             dist1 += haversine_distance(
-                self.target_queue[i][0],
-                self.target_queue[i][1],
-                self.target_queue[i - 1][0],
-                self.target_queue[i - 1][1],
+                self.target_queue[i]['lat'],
+                self.target_queue[i]['lon'],
+                self.target_queue[i - 1]['lat'],
+                self.target_queue[i - 1]['lon'],
             )
 
 
         # TODO add types to target
-           # weight1 += self.target_queue[i]["weight"]
+            if self.target_queue[i]["type"] == "order":
+                weight1 += self.target_queue[i]["weight"]
 
             #if self.target_queue[i]["type"] == "CENTER":
                 # Check if the drone has enough autonomy to reach the center
