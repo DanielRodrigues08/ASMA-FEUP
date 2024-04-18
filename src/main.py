@@ -42,7 +42,7 @@ def create_system():
     support_bases.append(support_base)
 
     for drone_data in drones_data:
-
+        
         drones.append(
             DroneAgent(
                 drone_data["id"] + "@localhost",
@@ -52,7 +52,7 @@ def create_system():
                 drone_data["autonomy"],
                 drone_data["velocity"],
                 drone_data["capacity"],
-                len(centers_data),
+                (centers_data),
                 support_bases
             )
         )
@@ -173,12 +173,12 @@ if __name__ == "__main__":
     ambient.trigger['Sunny']   = False
 
 
-    p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
-    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
+    #p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
+    #p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
 
-    p1.start()    
-    p3.start()
+   # p1.start()    
+   # p3.start()
     run_spade()
-    p1.join()
-    p3.join()
+   #p1.join()
+   # p3.join()
 

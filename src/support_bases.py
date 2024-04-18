@@ -114,7 +114,7 @@ class Rearrangement(State):
         payload_1 = json.loads(msg1.body)
         payload_2 = json.loads(msg2.body)
         
-        if payload_1["type"] == "REARRANGE_DONE" and payload_2["type"] == "REARRANGE_DONE":
+        if payload_1["type"] == "REARRANGE_DRONE" and payload_2["type"] == "REARRANGE_DRONE":
             print("PREF1", payload_1["reordered"])
             print("PREF2", payload_2["reordered"]) 
             print(payload_1["reordered"][0][1]) 
