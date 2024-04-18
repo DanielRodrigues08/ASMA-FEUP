@@ -70,7 +70,7 @@ def create_system():
             Center(
                 center_data["id"] + "@localhost",
                 center_data["id"],
-                (center_data["latitude"], center_data["longitude"]),
+                (center_data["lat"], center_data["long"]),
                 matching_order["orders"],
                 drones_jids,
             )

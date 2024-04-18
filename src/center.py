@@ -92,6 +92,7 @@ class SendOrder(State):
             await self.send(msg)
 
         self.agent.timer = datetime.datetime.now()
+        print(f"ORDERS SENT")
         self.set_next_state(RECEIVE_BIDS)
         return
 

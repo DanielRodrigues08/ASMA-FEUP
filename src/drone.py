@@ -54,6 +54,7 @@ class Listen(State):
                 # TODO: Change this
                 for order in payload["orders"]:
                     print(order)
+                    print("CENTERS", self.agent.centers)
                     value = self.agent.utility([order], self.agent.centers[0])
                     bids.append(
                         {
@@ -397,11 +398,14 @@ class DroneAgent(Agent):
             )
         else:
             dist1 = 0
-
         weight1 = 0
         need_to_add_center = True
 
         for i in range(len(orders) - 1, -1, -1):
+            print("ORDERS", orders)
+            print("TARGET QUEUE", self.target_queue)
+            #if len(self.target_queue) == 0:
+                #break
             dist1 += haversine_distance(
                 self.target_queue[i]["lat"],
                 self.target_queue[i]["long"],
@@ -409,7 +413,6 @@ class DroneAgent(Agent):
                 self.target_queue[i - 1]["long"],
             )
             weight1 += self.target_queue[i]["weight"]
-
             if self.target_queue[i]["type"] == "CENTER":
                 # Check if the drone has enough autonomy to reach the center
                 if dist1 > self.max_autonomy:
