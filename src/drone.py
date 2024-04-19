@@ -205,6 +205,7 @@ class DroneAgent(Agent):
 
         self.target_queue = []
         self.delivering = False
+        self.returning_center = False
 
         self.centers = centers
 
@@ -227,6 +228,7 @@ class DroneAgent(Agent):
         self.xy = {"x": 1, "y": 1}
         self.stats = []
         self.timer_for_stats = None
+        self.block_timer = False
         self.centers_over = 0
 
     def update_position(self, position):
@@ -263,6 +265,14 @@ class DroneAgent(Agent):
 
             if len(self.agent.target_queue) > 0:
 
+                if self.agent.target_queue[0]['type'] == 'order':
+                    self.agent.delivering = True
+                    if (self.agent.block_timer == False):
+                        self.agent.block_timer = True
+                        self.agent.timer_for_stats = datetime.datetime.now()
+                else: 
+                    if self.agent.target_queue[0]['type'] == 'center':
+                        self.agent.returning_center = True     
                 target = (self.agent.target_queue[0]['lat'], self.agent.target_queue[0]['lon'])
                 delta = (
                     datetime.datetime.now() - self.agent.global_timer
@@ -276,7 +286,7 @@ class DroneAgent(Agent):
                 ) * 100
 
                 if distance != 0:
-                    fraction = self.agent.velocity * delta / distance
+                    fraction = (self.agent.velocity * delta / distance)*10
                 else:
                     fraction = 1
                 self.agent.position = (
@@ -285,6 +295,7 @@ class DroneAgent(Agent):
                     self.agent.position[1]
                     + fraction * (target[1] - self.agent.position[1]),
                 )
+                
 
                 if fraction >= 1:
 
@@ -292,6 +303,7 @@ class DroneAgent(Agent):
 
                     if self.agent.delivering:
                         print("Order Delivered")
+                        self.agent.block_timer = False
                         time_to_deliver = (
                             datetime.datetime.now() - self.agent.timer_for_stats
                         ).total_seconds()
@@ -302,16 +314,25 @@ class DroneAgent(Agent):
                         self.agent.orders.pop(0)
                         print(f"Drone returning to the center")
                         self.agent.target_queue.pop(0)
-                        self.agent.delivering = False
+                        if (len(self.agent.target_queue) > 0):
+                            if self.agent.target_queue[0]['type'] == 'center': 
+                                self.agent.delivering = False
                     else:
-                        # print("Drone arrived at the support base")
-                        msg = Message(to=str(self.agent.current_base))
-                        msg.body = json.dumps(
-                            {"type": "ARRIVED", "orders": self.agent.orders[1:]}
-                        )
-                        self.agent.block_new_orders = True
-                        await self.send(msg)
-                        self.agent.current_base = None
+                        if self.agent.returning_center:
+                            print("Returned center")
+                            self.agent.target_queue.pop(0)
+                            if (len(self.agent.target_queue) > 0):
+                                if self.agent.target_queue[0]['type'] == 'order': 
+                                    self.agent.returning_center = False
+                        else:
+                            # print("Drone arrived at the support base")
+                            msg = Message(to=str(self.agent.current_base))
+                            msg.body = json.dumps(
+                                {"type": "ARRIVED", "orders": self.agent.orders[1:]}
+                            )
+                            self.agent.block_new_orders = True
+                            await self.send(msg)
+                            self.agent.current_base = None
 
                     self.agent.delivering = False
 
@@ -351,6 +372,10 @@ class DroneAgent(Agent):
         # Check if the drone can carry the orders
         weight = sum(order["weight"] for order in orders)
         if weight > self.max_capacity:
+            return -1
+        
+        weight2 = sum (order["weight"] for order in self.orders)
+        if weight2 + weight > self.max_capacity:
             return -1
 
 
@@ -424,6 +449,9 @@ class DroneAgent(Agent):
         for i in range(len(orders) - 1, -1, -1):
  
             if len(self.target_queue) == 0:
+                total_distance = dist1 + dist + dist_last_order_to_center
+                time_to_deliver = (total_distance / self.velocity)
+                weight_to_deliver = weight
                 break
 
             dist1 += haversine_distance(
@@ -438,11 +466,8 @@ class DroneAgent(Agent):
             if self.target_queue[i]["type"] == "order":
                 weight1 += self.target_queue[i]["weight"]
 
-            #if self.target_queue[i]["type"] == "CENTER":
+            if self.target_queue[i]["type"] == "center":
                 # Check if the drone has enough autonomy to reach the center
-                #TODO remove
-            if False:
-
                 if dist1 > self.max_autonomy:
                     return -1
 

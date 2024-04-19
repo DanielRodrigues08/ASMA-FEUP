@@ -7,7 +7,7 @@ from spade.message import Message
 from utils import delta, get_all_stats
 import time
 
-TIMEOUT_MESSAGES = 1
+TIMEOUT_MESSAGES = 2
 
 SEND_ORDER = "SEND_ORDER"
 RECEIVE_BIDS = "RECEIVE_BIDS"
@@ -83,7 +83,9 @@ class SendOrder(State):
             msg.body = payload
             msg.set_metadata("performative", "inform")
             await self.send(msg)
+            print("SENT", payload)
 
+        
         self.agent.timer = datetime.datetime.now()
         print(f"ORDERS SENT")
         self.set_next_state(RECEIVE_BIDS)
@@ -116,7 +118,7 @@ class ReceiveBids(State):
 
     async def run(self):
 
-        if delta(self.agent.timer, TIMEOUT_MESSAGES* 5):
+        if delta(self.agent.timer, TIMEOUT_MESSAGES* 7):
             self.set_next_state(AUCTION)
             return
 
@@ -127,7 +129,12 @@ class ReceiveBids(State):
             if body["type"] == "BIDS":
                 # print(f"Center received bid from {msg.sender}")
                 self.agent.bids += body["bids"]
-
+                self.agent.counter_bids_recv += 1
+        
+        if (self.agent.counter_bids_recv == len(self.agent.drones)):
+            self.set_next_state(AUCTION)
+            return
+        
         self.set_next_state(RECEIVE_BIDS)
         return
 
@@ -137,6 +144,7 @@ class Auction(State):
     async def run(self):
 
         self.agent.timer = datetime.datetime.now()
+        self.agent.counter_bids_recv = 0
         if self.agent.bids == []:
             self.set_next_state(SEND_ORDER)
             return
@@ -144,11 +152,15 @@ class Auction(State):
         self.agent.bids = sorted(
             self.agent.bids, key=lambda x: x["value"], reverse=True
         )
+        
+        print("BIDS", self.agent.bids)
 
         accepted_bids = []
         accepted_orders = set()
         accepted_drones = set()
 
+        print("PENDING", self.agent.bids)
+        
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):
                 break
@@ -157,6 +169,7 @@ class Auction(State):
                 len(accepted_orders & set(bid["id_orders"])) == 0
                 and bid["sender"] not in accepted_drones
             ):
+                print(f"FIXE FIXE")
                 accepted_bids.append(bid)
                 accepted_orders.update(set(bid["id_orders"]))
                 accepted_drones.add(bid["sender"])
@@ -228,6 +241,7 @@ class Center(Agent):
         self.batch_size = batch_size
         self.pending_orders = []
         self.final_stats_drones = []
+        self.counter_bids_recv = 0
 
         # Only For Debug
         self.first = True
