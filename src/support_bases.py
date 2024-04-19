@@ -41,7 +41,7 @@ class Waiting_1_msg(State):
     
 class Waiting_2_msg(State):
     async def run(self):
-        msg = await self.receive(timeout=0) #timeout de espera por 2 msg
+        msg = await self.receive(timeout=10) #timeout de espera por 2 msg
         
         if msg is None:
             self.set_next_state(WAITING_1_MSG)
@@ -69,8 +69,8 @@ class Waiting_Meeting(State):
             msg.body = json.dumps({"type": "UPDATE_ORDERS", "position": self.agent.position})
             await self.send(msg)        
         
-        msg_1 = await self.receive(timeout=0)
-        msg_2 = await self.receive(timeout=0)
+        msg_1 = await self.receive(timeout=120)
+        msg_2 = await self.receive(timeout=120)
         
         if msg_1 is None or msg_2 is None:
             self.set_next_state(WAITING_1_MSG)
@@ -108,8 +108,8 @@ class Rearrangement(State):
             msg.body = json.dumps({"type": "REARRANGE", "orders": self.agent.orders_rearrange})
             await self.send(msg)
             
-        msg1 = await self.receive(timeout=0)
-        msg2 = await self.receive(timeout=0)
+        msg1 = await self.receive(timeout=100)
+        msg2 = await self.receive(timeout=100)
         
         payload_1 = json.loads(msg1.body)
         payload_2 = json.loads(msg2.body)

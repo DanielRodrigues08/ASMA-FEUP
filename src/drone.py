@@ -72,11 +72,14 @@ class Listen(State):
                 return
 
             case "UPDATE_ORDERS":
-
-                self.agent.target_queue.append(
-                    {'type': 'order', 'lat': payload["position"][0], 'lon':payload["position"][1], 'weight': payload["weight"]}
+                
+                self.agent.target_queue.insert(0,
+                    {'type': 'base', 'lat': payload["position"][0], 'lon':payload["position"][1]}
                 )
+                print("TARGET", self.agent.target_queue)
                 self.agent.delivering = False
+                self.agent.returning_center = False
+                self.agent.going_base = True
                 self.agent.current_base = msg.sender
                 self.set_next_state(LISTEN)
 
@@ -98,10 +101,13 @@ class Listen(State):
                 self.set_next_state(LISTEN)
                 return
 
-            case "REARRANGEMENT_DRONE":
+            case "REARRANGEMENT_DONE":
                 print(f"Drone received rearranged orders")
                 self.agent.orders = [self.agent.orders[0]] + payload["new_orders"]
                 self.agent.block_new_orders = False
+                self.agent.block_movement = False
+                self.agent.target_queue.pop(0)
+                self.agent.going_base = False
                 self.set_next_state(LISTEN)
                 return
 
@@ -151,6 +157,7 @@ class WaitingAccept(State):
                 for order in pending_orders:
                     if order["id"] == id_order:
                         self.agent.orders.append(order)
+                        print("AGENT", self.agent.jid, "ORDERS", self.agent.orders)
                         self.agent.target_queue.append({'type':'center', 'id': str(center).split('@')[0],'lat': self.agent.centers[str(center).split("@")[0]]['lat'],
                                                       'lon':self.agent.centers[str(center).split("@")[0]]['lon']})
                         self.agent.target_queue.append({'type':'order', 'lat':order['lat'], 'lon':order['lon'], 'weight':order['weight']})
@@ -230,6 +237,8 @@ class DroneAgent(Agent):
         self.timer_for_stats = None
         self.block_timer = False
         self.centers_over = 0
+        self.going_base = False
+        self.block_movement = False
 
     def update_position(self, position):
         self.position = position
@@ -285,71 +294,75 @@ class DroneAgent(Agent):
                     target[1],
                 ) * 100
 
-                if distance != 0:
-                    fraction = (self.agent.velocity * delta / distance)*10
-                else:
-                    fraction = 1
-                self.agent.position = (
-                    self.agent.position[0]
-                    + fraction * (target[0] - self.agent.position[0]),
-                    self.agent.position[1]
-                    + fraction * (target[1] - self.agent.position[1]),
-                )
+                if self.agent.block_movement == False:
+                    if distance != 0:
+                        fraction = (self.agent.velocity * delta / distance)*10
+                    else:
+                        fraction = 1
+                    self.agent.position = (
+                        self.agent.position[0]
+                        + fraction * (target[0] - self.agent.position[0]),
+                        self.agent.position[1]
+                        + fraction * (target[1] - self.agent.position[1]),
+                    )
                 
 
-                if fraction >= 1:
+                    if fraction >= 1:
 
-                    self.agent.position = target
+                        self.agent.position = target
 
-                    if self.agent.delivering:
-                        print("Order Delivered")
-                        self.agent.block_timer = False
-                        time_to_deliver = (
-                            datetime.datetime.now() - self.agent.timer_for_stats
-                        ).total_seconds()
-                        self.agent.stats.append(
-                            {"order": self.agent.orders[0], "time": time_to_deliver}
-                        )
-                        print("STATS", self.agent.stats)
-                        self.agent.orders.pop(0)
-                        print(f"Drone returning to the center")
-                        self.agent.target_queue.pop(0)
-                        if (len(self.agent.target_queue) > 0):
-                            if self.agent.target_queue[0]['type'] == 'center': 
-                                self.agent.delivering = False
-                    else:
-                        if self.agent.returning_center:
-                            print("Returned center")
+                        if self.agent.delivering:
+                            print("Order Delivered")
+                            self.agent.block_timer = False
+                            time_to_deliver = (
+                                datetime.datetime.now() - self.agent.timer_for_stats
+                            ).total_seconds()
+                            self.agent.stats.append(
+                                {"order": self.agent.orders[0], "time": time_to_deliver}
+                            )
+                            print("STATS", self.agent.stats)
+                            self.agent.orders.pop(0)
+                            print(f"Drone returning to the center")
                             self.agent.target_queue.pop(0)
                             if (len(self.agent.target_queue) > 0):
-                                if self.agent.target_queue[0]['type'] == 'order': 
-                                    self.agent.returning_center = False
+                                if self.agent.target_queue[0]['type'] == 'center': 
+                                    self.agent.delivering = False
                         else:
-                            # print("Drone arrived at the support base")
-                            msg = Message(to=str(self.agent.current_base))
-                            msg.body = json.dumps(
-                                {"type": "ARRIVED", "orders": self.agent.orders[1:]}
-                            )
-                            self.agent.block_new_orders = True
-                            await self.send(msg)
-                            self.agent.current_base = None
+                            if self.agent.returning_center:
+                                print("Returned center")
+                                self.agent.target_queue.pop(0)
+                                if (len(self.agent.target_queue) > 0):
+                                    if self.agent.target_queue[0]['type'] == 'order': 
+                                        self.agent.returning_center = False
+                            else:
+                                if self.agent.going_base:
+                                    print("YEAHHHH")
+                                    print("Drone arrived at the support base")
+                                    msg = Message(to=str(self.agent.current_base))
+                                    msg.body = json.dumps(
+                                        {"type": "ARRIVED", "orders": self.agent.orders[1:]}
+                                    )
+                                    self.agent.block_new_orders = True
+                                    self.agent.block_movement = True
+                                    await self.send(msg)
+                                    self.agent.current_base = None
 
-                    self.agent.delivering = False
+                        self.agent.delivering = False
 
-                base_collision = self.check_collisions_bases()
-                if (
-                    base_collision != None
-                    and base_collision not in self.agent.base_collisions
-                    and len(self.agent.orders) > 1
-                ):
-                    self.agent.base_collisions.append(base_collision)
-                    msg = Message(
-                        to=str(base_collision.jid),
-                        body=json.dumps({"type": "PRESENCE"}),
-                    )
-                    msg.set_metadata("performative", "inform")
-                    # print(msg.body)
-                    await self.send(msg)
+                    base_collision = self.check_collisions_bases()
+                    if (
+                        base_collision != None
+                        and base_collision not in self.agent.base_collisions
+                        and len(self.agent.orders) > 1
+                    ):
+                        self.agent.base_collisions.append(base_collision)
+                        msg = Message(
+                            to=str(base_collision.jid),
+                            body=json.dumps({"type": "PRESENCE"}),
+                        )
+                        msg.set_metadata("performative", "inform")
+                        # print(msg.body)
+                        await self.send(msg)
 
             if (
                 len(self.agent.target_queue) == 0
