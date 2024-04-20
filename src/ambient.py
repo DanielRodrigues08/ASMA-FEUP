@@ -7,21 +7,20 @@ from spade.behaviour import CyclicBehaviour
 from spade.message import Message
 import random
 
+
 class Ambient(Agent):
 
-    def __init__(self, jid, password, drones = set()):
+    def __init__(self, jid, password, drones=set()):
         super().__init__(jid, password)
-        self.drones    = drones   
-        
+        self.drones = drones
 
-        self.trigger   = {}
+        self.trigger = {}
         self.incidents = ["Raining", "Windy", "Sunny"]
 
     class InformBehav(CyclicBehaviour):
 
-        
         async def run(self):
-            
+
             prevent_key = None
             for key in self.agent.trigger:
                 if self.agent.trigger[key] == True:
@@ -34,12 +33,10 @@ class Ambient(Agent):
                 print(f"Ambient Warning Incoming at {datetime.datetime.now()} of type {prevent_key}")
 
                 for drone in self.agent.drones:
-
-                    msg          = Message(to=str(drone))
-                    msg.body     = json.dumps({'type': "AMBIENT", 'condition': prevent_key})
+                    msg = Message(to=str(drone))
+                    msg.body = json.dumps({'type': "AMBIENT", 'condition': prevent_key})
                     msg.set_metadata("performative", "inform")
                     await self.send(msg)
-                                    
 
         async def on_end(self):
 

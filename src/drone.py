@@ -29,37 +29,31 @@ class StateBehaviour(FSMBehaviour):
 
 class Listen(State):
     async def run(self):
-
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
         self.agent.timer = datetime.datetime.now()
 
-        if self.agent.battery == 0:
-            self.set_next_state(NO_BATTERY)
-            return
-
-        msg = await self.receive(timeout=0)
+        msg = await self.receive(timeout=1)
 
         if msg is None:
             self.set_next_state(LISTEN)
             return
 
         payload = json.loads(msg.body)
-
         match payload["type"]:
 
             case "NEW_ORDERS":
-                self.agent.pending = {"sender": msg.sender, "bids": {}}
-                if self.agent.block_timer_working == False:
+                self.agent.pending = {"sender": str(msg.sender), "bids": {}}
+                if not self.agent.block_timer_working:
                     self.agent.timer_working = datetime.datetime.now()
                     self.agent.block_timer_working = True
                 bids = []
                 counter = 0
 
                 for order in payload["orders"]:
-                    value, add_center = self.agent.utility([order], str(msg.sender).split("@")[0])
-                    if (value == -1):
+                    value, add_center = self.agent.utility([order], str(msg.sender))
+                    if value == -1:
                         continue
                     bids.append(
                         {
@@ -69,8 +63,8 @@ class Listen(State):
                             "id_bid": counter
                         }
                     )
+                    self.agent.pending["bids"][counter] = {"orders": [order], "add_center": add_center}
                     counter += 1
-                    self.agent.pending["bids"][counter] = {"orders": order, "add_center": add_center}
 
                 ans = Message(to=str(msg.sender))
                 ans.body = json.dumps({"type": "BIDS", "bids": bids})
@@ -90,10 +84,10 @@ class Listen(State):
                     },
                 )
 
-                self.agent.delivering       = False
+                self.agent.delivering = False
                 self.agent.returning_center = False
-                self.agent.going_base       = True
-                self.agent.current_base     = msg.sender
+                self.agent.going_base = True
+                self.agent.current_base = msg.sender
                 self.set_next_state(LISTEN)
 
                 return
@@ -141,16 +135,12 @@ class Standby(State):
 class WaitingAccept(State):
 
     async def run(self):
-
-        msg = None
-        center, pending_orders = self.agent.pending
-
         if delta(self.agent.timer, TIMEOUT * 10):
             self.set_next_state(LISTEN)
             return
 
         msg = await self.receive(timeout=0)
-        if not msg or msg.sender != center:
+        if not msg or str(msg.sender) != self.agent.pending["sender"]:
             self.set_next_state(WAITING_ACCEPT)
             return
 
@@ -159,10 +149,10 @@ class WaitingAccept(State):
         if payload["type"] == "ACCEPT":
             bid = self.agent.pending["bids"][payload["id_bid"]]
             if bid["add_center"]:
-                self.agent.target_queue.append(self.agent.centers[str(center).split("@")[0]])
+                self.agent.target_queue.append(self.agent.centers[str(msg.sender)])
             self.agent.target_queue.extend(bid["orders"])
 
-            ans = Message(to=str(center), body=json.dumps({"type": "OK"}))
+            ans = Message(to=str(msg.sender), body=json.dumps({"type": "OK"}))
             ans.set_metadata("performative", "inform")
             await self.send(ans)
 
@@ -194,16 +184,15 @@ class NoBattery(State):
 class DroneAgent(Agent):
 
     def __init__(
-        self,
-        jid,
-        password,
-        position,
-        battery,
-        autonomy,
-        velocity,
-        max_capacity,
-        centers,
-        support_bases=None,
+            self, jid,
+            password,
+            position,
+            battery,
+            autonomy,
+            velocity,
+            max_capacity,
+            centers,
+            support_bases=None,
     ):
 
         super().__init__(jid, password)
@@ -257,12 +246,12 @@ class DroneAgent(Agent):
         def check_collisions_bases(self):
             for base in self.agent.bases:
                 if (
-                    haversine_distance(
-                        self.agent.position[0],
-                        self.agent.position[1],
-                        base.position[0],
-                        base.position[1],
-                    )
+                        haversine_distance(
+                            self.agent.position[0],
+                            self.agent.position[1],
+                            base.position[0],
+                            base.position[1],
+                        )
                 ):
                     return base
             return None
@@ -276,7 +265,7 @@ class DroneAgent(Agent):
 
                 if self.agent.target_queue[0]["type"] == "order":
                     self.agent.delivering = True
-                    if self.agent.block_timer == False:
+                    if not self.agent.block_timer:
                         self.agent.block_timer = True
                         self.agent.timer_for_stats = datetime.datetime.now()
                 else:
@@ -287,20 +276,20 @@ class DroneAgent(Agent):
                     self.agent.target_queue[0]["lon"],
                 )
                 delta = (
-                    datetime.datetime.now() - self.agent.global_timer
+                        datetime.datetime.now() - self.agent.global_timer
                 ).total_seconds()
 
                 distance = (
-                    haversine_distance(
-                        self.agent.position[0],
-                        self.agent.position[1],
-                        target[0],
-                        target[1],
-                    )
-                    * 100
+                        haversine_distance(
+                            self.agent.position[0],
+                            self.agent.position[1],
+                            target[0],
+                            target[1],
+                        )
+                        * 100
                 )
 
-                if self.agent.block_movement == False:
+                if not self.agent.block_movement:
                     if distance != 0:
                         fraction = (self.agent.velocity * delta / distance) * 10
                     else:
@@ -319,7 +308,7 @@ class DroneAgent(Agent):
                         if self.agent.delivering:
                             self.agent.block_timer = False
                             time_to_deliver = (
-                                datetime.datetime.now() - self.agent.timer_for_stats
+                                    datetime.datetime.now() - self.agent.timer_for_stats
                             ).total_seconds()
                             self.agent.stats.append(
                                 {"order": self.agent.orders[0], "time": time_to_deliver}
@@ -353,10 +342,10 @@ class DroneAgent(Agent):
 
                     base_collision = self.check_collisions_bases()
                     if (
-                        base_collision != None
-                        and base_collision not in self.agent.base_collisions
-                        and len(self.agent.orders) > 1
-                        and self.agent.delivering
+                            base_collision is not None
+                            and base_collision not in self.agent.base_collisions
+                            and len(self.agent.orders) > 1
+                            and self.agent.delivering
                     ):
                         self.agent.base_collisions.append(base_collision)
                         msg = Message(
@@ -368,9 +357,9 @@ class DroneAgent(Agent):
                         await self.send(msg)
 
             if (
-                len(self.agent.target_queue) == 0
-                and len(self.agent.orders) == 0
-                and self.agent.centers_over == self.agent.num_centers
+                    len(self.agent.target_queue) == 0
+                    and len(self.agent.orders) == 0
+                    and self.agent.centers_over == self.agent.num_centers
             ):
                 timer_working = (datetime.datetime.now() - self.agent.timer_working).total_seconds()
                 for center in self.agent.centers:
@@ -379,7 +368,7 @@ class DroneAgent(Agent):
                         body=json.dumps({"type": "STATS", "stats": self.agent.stats, "time": timer_working}),
                     )
                     msg.set_metadata("performative", "inform")
-                    await self.send(msg)   
+                    await self.send(msg)
                 await self.agent.stop()
 
             self.agent.global_timer = datetime.datetime.now()
@@ -396,12 +385,12 @@ class DroneAgent(Agent):
                 actual_lat, actual_lon, target["lat"], target["lon"]
             )
 
-            capacity -= target["weight"] if target["type"] == "order" else 0
+            capacity -= target["weight"] if target["type"] == "ORDER" else 0
 
             if autonomy < 0 or capacity < 0:
                 return False
 
-            if target["type"] == "center":
+            if target["type"] == "CENTER":
                 capacity = self.max_capacity
                 autonomy = self.max_autonomy
 
@@ -422,14 +411,14 @@ class DroneAgent(Agent):
                 actual_lat, actual_lon, target["lat"], target["lon"]
             )
 
-            if target["type"] == "order":
+            if target["type"] == "ORDER":
                 num_orders += 1
 
             actual_lat = target["lat"]
             actual_lon = target["lon"]
-        
+
         return (total_distance * 1000 / self.velocity) / num_orders
-    
+
     def utility(self, orders, center_id):
         nearest_center = min(
             self.centers.values(),
@@ -444,16 +433,18 @@ class DroneAgent(Agent):
             if target["type"] == "center" and target["id"] == center_id:
                 check_need_to_add_center = True
                 break
-        
-        add_center = False
+
+        add_center = True
+
+        temp_target_queue = []
 
         if check_need_to_add_center:
             temp_target_queue = self.target_queue.copy()
             temp_target_queue.extend(orders)
             temp_target_queue.append(nearest_center)
-            add_center = self.valid_target_queue(temp_target_queue)
+            add_center = not self.valid_target_queue(temp_target_queue)
 
-        if not add_center:
+        if add_center:
             temp_target_queue = self.target_queue.copy()
             temp_target_queue.append(nearest_center)
             temp_target_queue.extend(orders)
@@ -464,9 +455,7 @@ class DroneAgent(Agent):
             if not self.valid_target_queue(temp_target_queue):
                 return -1, False
 
-
         return self.utility_value(temp_target_queue[:-1]), add_center
-        
 
     def rearrange_orders_base(self, pending_orders):
         possible_combos = []
@@ -485,7 +474,7 @@ class DroneAgent(Agent):
         all_combos.extend(filtered_combos)
         for combo in all_combos:
             utility_1 = 0
-            for element in combo:
+            for _ in combo:
                 utility_1 = utility_1 + 1
             utility_data_1 = (combo, utility_1)
 

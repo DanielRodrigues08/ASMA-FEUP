@@ -27,16 +27,17 @@ class StateBehaviour(FSMBehaviour):
         # print(f"FSM finished at state {self.current_state}")
         await self.agent.stop()
 
-class Standby(State):
-    
-    async def run(self):
 
+class Standby(State):
+
+    async def run(self):
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
-        
+
         self.set_next_state(SEND_ORDER)
         return
+
 
 class SendOrder(State):
 
@@ -46,6 +47,12 @@ class SendOrder(State):
             self.set_next_state(STANDBY)
             return
 
+        # Only For Debug
+        if not self.agent.first:
+            time.sleep(10)
+        else:
+            self.agent.first = False
+
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
@@ -54,9 +61,9 @@ class SendOrder(State):
                 msg = Message(to=str(drone))
                 msg.body = json.dumps({"type": "FINISHED"})
                 msg.set_metadata("performative", "inform")
-                await self.send(msg)  
+                await self.send(msg)
             self.set_next_state(STATS)
-            return        
+            return
 
         num_orders = min(self.agent.batch_size, len(self.agent.orders))
 
@@ -67,6 +74,7 @@ class SendOrder(State):
             "orders": [
                 {
                     "id": order[0],
+                    "type": "ORDER",
                     "lat": float(order[1]),
                     "lon": float(order[2]),
                     "weight": int(order[3]),
@@ -85,24 +93,24 @@ class SendOrder(State):
             msg.set_metadata("performative", "inform")
             await self.send(msg)
 
-        
         self.agent.timer = datetime.datetime.now()
         self.set_next_state(RECEIVE_BIDS)
         return
 
-class Stats(State):    
+
+class Stats(State):
     async def run(self):
         msg = await self.receive(timeout=TIMEOUT_MESSAGES)
         if msg is None:
             self.set_next_state(STATS)
             return
-    
+
         payload = json.loads(msg.body)
-        
+
         match payload["type"]:
             case "STATS":
                 self.agent.final_stats_drones.append(payload["stats"])
-                self.agent.final_stats_times.append({"drone": str(msg.sender).split("@")[0] ,"time": payload["time"]})
+                self.agent.final_stats_times.append({"drone": str(msg.sender).split("@")[0], "time": payload["time"]})
                 if len(self.agent.final_stats_drones) != len(self.agent.drones):
                     self.set_next_state(STATS)
                     return
@@ -111,32 +119,30 @@ class Stats(State):
                     get_all_stats(self.agent.final_stats_drones, self.agent.final_stats_times, total_time_system)
                     await self.agent.stop()
                     return
-        
-        
-        
+
+
 class ReceiveBids(State):
 
     async def run(self):
-
-        if delta(self.agent.timer, TIMEOUT_MESSAGES* 7):
+        if delta(self.agent.timer, TIMEOUT_MESSAGES * 7):
             self.set_next_state(AUCTION)
             return
 
         msg = await self.receive(timeout=0)
 
         if msg:
-            if self.agent.block_timer == False:
+            if not self.agent.block_timer:
                 self.agent.system_timer = datetime.datetime.now()
                 self.agent.block_timer = True
             body = json.loads(msg.body)
             if body["type"] == "BIDS":
                 self.agent.bids += body["bids"]
                 self.agent.counter_bids_recv += 1
-        
-        if (self.agent.counter_bids_recv == len(self.agent.drones)):
+
+        if self.agent.counter_bids_recv == len(self.agent.drones):
             self.set_next_state(AUCTION)
             return
-        
+
         self.set_next_state(RECEIVE_BIDS)
         return
 
@@ -144,28 +150,27 @@ class ReceiveBids(State):
 class Auction(State):
 
     async def run(self):
-
         self.agent.timer = datetime.datetime.now()
         self.agent.counter_bids_recv = 0
-        if self.agent.bids == []:
+        if not self.agent.bids:
             self.set_next_state(SEND_ORDER)
             return
 
         self.agent.bids = sorted(
             self.agent.bids, key=lambda x: x["value"], reverse=True
         )
-        
+
         accepted_bids = []
         accepted_orders = set()
         accepted_drones = set()
-        
+
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):
                 break
-            
+
             if (
-                len(accepted_orders & set(bid["id_orders"])) == 0
-                and bid["sender"] not in accepted_drones
+                    len(accepted_orders & set(bid["id_orders"])) == 0
+                    and bid["sender"] not in accepted_drones
             ):
                 accepted_bids.append(bid)
                 accepted_orders.update(set(bid["id_orders"]))
@@ -173,6 +178,7 @@ class Auction(State):
 
         for accepted_bid in accepted_bids:
             msg = Message(to=accepted_bid["sender"])
+
             msg.body = json.dumps(
                 {"type": "ACCEPT", "id_bid": accepted_bid["id_bid"]}
             )
@@ -196,7 +202,7 @@ class WaitOk(State):
 
     async def run(self):
         if len(self.agent.confirmed_orders) == len(self.agent.pending_orders) or delta(
-            self.agent.timer, TIMEOUT_MESSAGES
+                self.agent.timer, TIMEOUT_MESSAGES
         ):
             self.agent.orders = [
                 order
@@ -225,9 +231,8 @@ class WaitOk(State):
 class Center(Agent):
 
     def __init__(
-        self, jid, password, position, orders, drones, batch_size=2
+            self, jid, password, position, orders, drones, batch_size=1
     ):
-
         super().__init__(jid, password)
         self.position = position
         self.orders = orders
@@ -246,7 +251,6 @@ class Center(Agent):
         self.first = True
 
     async def setup(self):
-
         s_machine = StateBehaviour()
 
         s_machine.add_state(name=SEND_ORDER, state=SendOrder(), initial=True)
@@ -263,7 +267,6 @@ class Center(Agent):
         s_machine.add_transition(source=STANDBY, dest=STANDBY)
         s_machine.add_transition(source=STANDBY, dest=SEND_ORDER)
         s_machine.add_transition(source=SEND_ORDER, dest=STANDBY)
-
 
         s_machine.add_transition(source=RECEIVE_BIDS, dest=RECEIVE_BIDS)
 
