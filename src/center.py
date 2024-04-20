@@ -178,7 +178,7 @@ class Auction(State):
             print(f"Center accepted bid from {accepted_bid['sender']}")
             msg = Message(to=accepted_bid["sender"])
             msg.body = json.dumps(
-                {"type": "ACCEPT", "id_orders": accepted_bid["id_orders"]}
+                {"type": "ACCEPT", "id_bid": accepted_bid["id_bid"]}
             )
             await self.send(msg)
 
