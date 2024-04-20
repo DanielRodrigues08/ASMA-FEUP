@@ -90,7 +90,6 @@ class Listen(State):
                     },
                 )
 
-                print("TARGET", self.agent.target_queue)
                 self.agent.delivering       = False
                 self.agent.returning_center = False
                 self.agent.going_base       = True
@@ -100,9 +99,6 @@ class Listen(State):
                 return
 
             case "REARRANGE_ORDERS":
-
-                print(f"Drone received orders from support base")
-
                 self.agent.orders = [self.agent.orders[0]]
                 result = self.agent.rearrange_orders_base(payload["orders"])
                 answer = Message(to=str(msg.sender))
@@ -116,7 +112,6 @@ class Listen(State):
                 return
 
             case "REARRANGE_DONE":
-                print(f"Drone received rearranged orders")
                 self.agent.orders = [self.agent.orders[0]] + payload["new_orders"]
                 self.agent.block_new_orders = False
                 self.agent.block_movement = False
@@ -136,9 +131,6 @@ class Listen(State):
 
 class Standby(State):
     async def run(self):
-
-        print(f"Drone is on standby")
-
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
@@ -184,7 +176,6 @@ class WaitingAccept(State):
 class ReturningCenter(State):
 
     async def run(self):
-        print(f"Drone returning to the center")
         center, _ = self.agent.pending
         # TODO: Change this
         self.agent.target_queue.append(center)
@@ -326,7 +317,6 @@ class DroneAgent(Agent):
                         self.agent.position = target
 
                         if self.agent.delivering:
-                            print("Order Delivered")
                             self.agent.block_timer = False
                             time_to_deliver = (
                                 datetime.datetime.now() - self.agent.timer_for_stats
@@ -334,23 +324,19 @@ class DroneAgent(Agent):
                             self.agent.stats.append(
                                 {"order": self.agent.orders[0], "time": time_to_deliver}
                             )
-                            print("STATS", self.agent.stats)
                             self.agent.orders.pop(0)
-                            print(f"Drone returning to the center")
                             self.agent.target_queue.pop(0)
                             if len(self.agent.target_queue) > 0:
                                 if self.agent.target_queue[0]["type"] == "center":
                                     self.agent.delivering = False
                         else:
                             if self.agent.returning_center:
-                                print("Returned center")
                                 self.agent.target_queue.pop(0)
                                 if len(self.agent.target_queue) > 0:
                                     if self.agent.target_queue[0]["type"] == "order":
                                         self.agent.returning_center = False
                             else:
                                 if self.agent.going_base:
-                                    print("Drone arrived at the support base")
                                     msg = Message(to=str(self.agent.current_base))
                                     msg.body = json.dumps(
                                         {
@@ -386,7 +372,6 @@ class DroneAgent(Agent):
                 and len(self.agent.orders) == 0
                 and self.agent.centers_over == self.agent.num_centers
             ):
-                print("Drone finished all deliveries")
                 timer_working = (datetime.datetime.now() - self.agent.timer_working).total_seconds()
                 for center in self.agent.centers:
                     msg = Message(
@@ -492,7 +477,6 @@ class DroneAgent(Agent):
             possible_combos = possible_combos + [
                 list(perm) for perm in permutations(pending_orders, r)
             ]
-        print("ALL_COMBOS", len(possible_combos))
         filtered_combos = [
             combo
             for combo in possible_combos

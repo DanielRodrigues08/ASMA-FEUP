@@ -49,7 +49,7 @@ class SendOrder(State):
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
-            print("Center finished deliveries")
+            print(str(self.agent) + " NO MORE ORDERS")
             for drone in self.agent.drones:
                 msg = Message(to=str(drone))
                 msg.body = json.dumps({"type": "FINISHED"})
@@ -87,7 +87,6 @@ class SendOrder(State):
 
         
         self.agent.timer = datetime.datetime.now()
-        print(f"ORDERS SENT")
         self.set_next_state(RECEIVE_BIDS)
         return
 
@@ -102,7 +101,6 @@ class Stats(State):
         
         match payload["type"]:
             case "STATS":
-                print(f"Center {self.agent.jid} received stats from {msg.sender}")
                 self.agent.final_stats_drones.append(payload["stats"])
                 self.agent.final_stats_times.append({"drone": str(msg.sender).split("@")[0] ,"time": payload["time"]})
                 if len(self.agent.final_stats_drones) != len(self.agent.drones):
@@ -132,7 +130,6 @@ class ReceiveBids(State):
                 self.agent.block_timer = True
             body = json.loads(msg.body)
             if body["type"] == "BIDS":
-                # print(f"Center received bid from {msg.sender}")
                 self.agent.bids += body["bids"]
                 self.agent.counter_bids_recv += 1
         
@@ -158,8 +155,6 @@ class Auction(State):
             self.agent.bids, key=lambda x: x["value"], reverse=True
         )
         
-        print("BIDS", self.agent.bids)
-
         accepted_bids = []
         accepted_orders = set()
         accepted_drones = set()
@@ -172,13 +167,11 @@ class Auction(State):
                 len(accepted_orders & set(bid["id_orders"])) == 0
                 and bid["sender"] not in accepted_drones
             ):
-                print(f"FIXE FIXE")
                 accepted_bids.append(bid)
                 accepted_orders.update(set(bid["id_orders"]))
                 accepted_drones.add(bid["sender"])
 
         for accepted_bid in accepted_bids:
-            print(f"Center accepted bid from {accepted_bid['sender']}")
             msg = Message(to=accepted_bid["sender"])
             msg.body = json.dumps(
                 {"type": "ACCEPT", "id_bid": accepted_bid["id_bid"]}
