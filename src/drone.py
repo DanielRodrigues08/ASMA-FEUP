@@ -10,12 +10,10 @@ from itertools import permutations
 import math
 
 LISTEN = "LISTEN"
-RETURNING_CENTER = "RETURNING_CENTER"
 NO_BATTERY = "NO_BATTERY"
 WAITING_ACCEPT = "WAITING_ACCEPT"
 TIMEOUT = 1
 STANDBY = "STANDBY"
-
 
 class StateBehaviour(FSMBehaviour):
     async def on_start(self):
@@ -34,10 +32,6 @@ class Listen(State):
             self.set_next_state(STANDBY)
             return
         self.agent.timer = datetime.datetime.now()
-
-        if self.agent.battery == 0:
-            self.set_next_state(NO_BATTERY)
-            return
 
         msg = await self.receive(timeout=0)
 
@@ -65,7 +59,9 @@ class Listen(State):
                             "sender": str(self.agent.jid),
                         }
                     )
-
+                
+                bids.extend(self.agent.bid_combinations(payload["orders"]))
+                print("BIDS", bids)
                 ans = Message(to=str(msg.sender))
                 ans.body = json.dumps({"type": "BIDS", "bids": bids})
                 ans.set_metadata("performative", "propose")
@@ -81,10 +77,7 @@ class Listen(State):
                 )
 
                 print("TARGET", self.agent.target_queue)
-                self.agent.delivering       = False
-                self.agent.returning_center = False
-                self.agent.going_base       = True
-                self.agent.current_base     = msg.sender
+                self.agent.current_base  = msg.sender
                 self.set_next_state(LISTEN)
 
                 return
@@ -106,12 +99,13 @@ class Listen(State):
                 return
 
             case "REARRANGE_DONE":
+
                 print(f"Drone received rearranged orders")
                 self.agent.orders = [self.agent.orders[0]] + payload["new_orders"]
-                self.agent.block_new_orders = False
-                self.agent.block_movement = False
+
                 self.agent.target_queue.pop(0)
-                self.agent.going_base = False
+                self.agent.state = None
+                self.agent.block_movement = False
                 self.set_next_state(LISTEN)
                 return
 
@@ -177,18 +171,6 @@ class WaitingAccept(State):
         return
 
 
-class ReturningCenter(State):
-
-    async def run(self):
-        print(f"Drone returning to the center")
-        center, _ = self.agent.pending
-        #TODO: Change this
-        self.agent.target_queue.append(center)
-        self.agent.delivering = False
-
-        self.set_next_state(LISTEN)
-        return
-
 
 class NoBattery(State):
     async def run(self):
@@ -214,14 +196,13 @@ class DroneAgent(Agent):
         super().__init__(jid, password)
 
         self.target_queue = []
-        self.delivering = False
-        self.returning_center = False
+        self.state = None
 
-        self.centers = centers
+        self.centers   = centers  
+        self.sim_speed = 10
 
         self.orders = []
         self.position = position
-        self.battery = battery
         self.bases = [] if support_bases is None else support_bases
         self.pending = None
         self.velocity = velocity
@@ -231,18 +212,16 @@ class DroneAgent(Agent):
         self.num_centers = len(centers)
         self.autonomy = autonomy
         self.timer = datetime.datetime.now()
-        self.global_timer = datetime.datetime.now()
-        self.current_base = None
+        self.global_timer    = datetime.datetime.now()
+        self.current_base    = None
         self.base_collisions = []
-        self.block_new_orders = False
-        self.xy = {"x": 1, "y": 1}
-        self.stats = []
+        self.xy              = {"x": 1, "y": 1}
+        self.stats           = []
         self.timer_for_stats = None
-        self.block_timer = False
-        self.centers_over = 0
-        self.going_base = False
-        self.block_movement = False
-        self.timer_working = datetime.datetime.now()
+        self.block_timer     = False
+        self.centers_over    = 0
+        self.block_movement  = False
+        self.timer_working   = datetime.datetime.now()
         self.block_timer_working = False
 
     def update_position(self, position):
@@ -272,108 +251,111 @@ class DroneAgent(Agent):
                     return base
             return None
 
-        async def run(self):
+        def delivery(self):
 
-            self.agent.xy["x"] = self.agent.position[0]
-            self.agent.xy["y"] = self.agent.position[1]
+            self.agent.block_timer = False
+            time_to_deliver = (
+                datetime.datetime.now() - self.agent.timer_for_stats
+            ).total_seconds()
 
-            if len(self.agent.target_queue) > 0:
+            self.agent.stats.append(
+                {"order": self.agent.orders[0], "time": time_to_deliver}
+            )
+            self.agent.orders.pop(0)
+            self.agent.target_queue.pop(0)
 
-                if self.agent.target_queue[0]['type'] == 'order':
-                    self.agent.delivering = True
+        def return_center(self):
+            self.agent.target_queue.pop(0)
+            self.agent.autonomy = self.agent.max_autonomy
+        async def going_base(self):
+            
+            msg = Message(to=str(self.agent.current_base))
+            msg.body = json.dumps(
+                {"type": "ARRIVED", "orders": self.agent.orders[1:]}
+            )
+
+            self.agent.block_movement = True
+            await self.send(msg)
+            self.agent.current_base = None
+
+        def update_state(self):
+
+            t = self.agent.target_queue[0]['type']
+            match t:
+                case "order":
+
+                    self.agent.state = "DELIVERING"
                     if (self.agent.block_timer == False):
                         self.agent.block_timer = True
                         self.agent.timer_for_stats = datetime.datetime.now()
-                else: 
+                case "base":
+                    self.agent.state = "GOING_BASE"
+                case "center":
                     if self.agent.target_queue[0]['type'] == 'center':
-                        self.agent.returning_center = True     
-                target = (self.agent.target_queue[0]['lat'], self.agent.target_queue[0]['lon'])
-                delta = (
-                    datetime.datetime.now() - self.agent.global_timer
-                ).total_seconds()
+                        self.agent.state = "RETURNING_CENTER"
 
-                distance = haversine_distance(
-                    self.agent.position[0],
-                    self.agent.position[1],
-                    target[0],
-                    target[1],
-                ) * 100
 
-                if self.agent.block_movement == False:
-                    if distance != 0:
-                        fraction = (self.agent.velocity * delta / distance)*10
-                    else:
-                        fraction = 1
-                    self.agent.position = (
-                        self.agent.position[0]
-                        + fraction * (target[0] - self.agent.position[0]),
-                        self.agent.position[1]
-                        + fraction * (target[1] - self.agent.position[1]),
-                    )
-                
+        def assing_pos(self):
+            self.agent.xy["x"] = self.agent.position[0]
+            self.agent.xy["y"] = self.agent.position[1]
 
-                    if fraction >= 1:
+        def update_position(self):
 
-                        self.agent.position = target
+            target = (self.agent.target_queue[0]['lat'], self.agent.target_queue[0]['lon'])
+            delta = (
+                datetime.datetime.now() - self.agent.global_timer
+            ).total_seconds()
 
-                        if self.agent.delivering:
-                            print("Order Delivered")
-                            self.agent.block_timer = False
-                            time_to_deliver = (
-                                datetime.datetime.now() - self.agent.timer_for_stats
-                            ).total_seconds()
-                            self.agent.stats.append(
-                                {"order": self.agent.orders[0], "time": time_to_deliver}
-                            )
-                            print("STATS", self.agent.stats)
-                            self.agent.orders.pop(0)
-                            print(f"Drone returning to the center")
-                            self.agent.target_queue.pop(0)
-                            if (len(self.agent.target_queue) > 0):
-                                if self.agent.target_queue[0]['type'] == 'center': 
-                                    self.agent.delivering = False
-                        else:
-                            if self.agent.returning_center:
-                                print("Returned center")
-                                self.agent.target_queue.pop(0)
-                                if (len(self.agent.target_queue) > 0):
-                                    if self.agent.target_queue[0]['type'] == 'order': 
-                                        self.agent.returning_center = False
-                            else:
-                                if self.agent.going_base:
-                                    print("Drone arrived at the support base")
-                                    msg = Message(to=str(self.agent.current_base))
-                                    msg.body = json.dumps(
-                                        {"type": "ARRIVED", "orders": self.agent.orders[1:]}
-                                    )
-                                    self.agent.block_new_orders = True
-                                    self.agent.block_movement = True
-                                    await self.send(msg)
-                                    self.agent.current_base = None
+            distance = haversine_distance(
+                self.agent.position[0],
+                self.agent.position[1],
+                target[0],
+                target[1],
+            ) * 1000 / self.agent.sim_speed
 
-                        self.agent.delivering = False
 
-                    base_collision = self.check_collisions_bases()
-                    if (
-                        base_collision != None
-                        and base_collision not in self.agent.base_collisions
-                        and len(self.agent.orders) > 1
-                        and self.agent.delivering
-                    ):
-                        self.agent.base_collisions.append(base_collision)
-                        msg = Message(
-                            to=str(base_collision.jid),
-                            body=json.dumps({"type": "PRESENCE"}),
-                        )
-                        msg.set_metadata("performative", "inform")
+            km = distance / 1000
+            if km < self.agent.autonomy:
+                self.agent.max_autonomy -= km
 
-                        await self.send(msg)
+            if distance != 0:
+                fraction = (self.agent.velocity * delta / distance)*10
+            else:
+                fraction = 1
+            self.agent.position = (
+                self.agent.position[0]
+                + fraction * (target[0] - self.agent.position[0]),
+                self.agent.position[1]
+                + fraction * (target[1] - self.agent.position[1]),
+            )
+
+            return fraction, target
+        
+        async def deal_with_collisions(self):
+            base_collision = self.check_collisions_bases()
+            if (
+                base_collision != None
+                and base_collision not in self.agent.base_collisions
+                and len(self.agent.orders) > 1
+                and self.agent.state == "DELIVERING"
+            ):
+                self.agent.base_collisions.append(base_collision)
+                msg = Message(
+                    to=str(base_collision.jid),
+                    body=json.dumps({"type": "PRESENCE"}),
+                )
+                msg.set_metadata("performative", "inform")
+
+                await self.send(msg)
+
+        async def publish_stats(self):
 
             if (
                 len(self.agent.target_queue) == 0
                 and len(self.agent.orders) == 0
                 and self.agent.centers_over == self.agent.num_centers
             ):
+                
                 print("Drone finished all deliveries")
                 timer_working = (datetime.datetime.now() - self.agent.timer_working).total_seconds()
                 for center in self.agent.centers:
@@ -385,7 +367,67 @@ class DroneAgent(Agent):
                     await self.send(msg)   
                 await self.agent.stop()
 
+
+        async def run(self):
+
+            await self.publish_stats()
+            
+            if self.agent.block_movement or len(self.agent.target_queue) == 0:
+                return
+
+            self.assing_pos()            
+            self.update_state()
+            f, t = self.update_position()
+
+            if f >= 1:
+
+                self.agent.position = t
+
+                match self.agent.state:
+                    
+                    case "DELIVERING":       self.delivery()
+                    case "RETURNING_CENTER": self.return_center()
+                    case "GOING_BASE":       await self.going_base()
+                    case _:                  pass
+
+            await self.deal_with_collisions()
             self.agent.global_timer = datetime.datetime.now()
+
+    def bid_combinations(self, orders):
+
+        possible_combos = []
+        all_combos      = []
+        bids            = []
+
+        existing_weight = sum(order["weight"] for order in self.orders)
+
+        for r in range(2, len(orders)):
+            possible_combos = possible_combos + [
+                list(perm) for perm in permutations(orders, r)
+            ]
+
+        filtered_combos = [
+            combo
+            for combo in possible_combos
+            if sum(order["weight"] for order in combo) + existing_weight <= self.max_capacity
+        ]
+
+
+        all_combos.extend(filtered_combos)
+        for combo in all_combos:
+            utility_1 = 0
+            for _ in combo:
+                utility_1 = utility_1 + 1
+
+            bids.append(
+                {
+                    "id_orders": [c["id"] for c in combo],
+                    "value": utility_1,
+                    "sender": str(self.jid),
+                })
+
+        bids = sorted(bids, key=lambda x: x['value'], reverse=True)
+        return bids
 
     def utility(self, orders, center_id):
         # Check if the drone can carry the orders
@@ -562,7 +604,6 @@ class DroneAgent(Agent):
 
         s_machine.add_state(name=LISTEN, state=Listen(), initial=True)
         s_machine.add_state(name=WAITING_ACCEPT, state=WaitingAccept())
-        s_machine.add_state(name=RETURNING_CENTER, state=ReturningCenter())
         s_machine.add_state(name=NO_BATTERY, state=NoBattery())
         s_machine.add_state(name=STANDBY, state=Standby())
 
@@ -572,10 +613,7 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=LISTEN)
         s_machine.add_transition(source=LISTEN, dest=WAITING_ACCEPT)
-        s_machine.add_transition(source=LISTEN, dest=RETURNING_CENTER)
-        s_machine.add_transition(source=RETURNING_CENTER, dest=LISTEN)
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
-        s_machine.add_transition(source=RETURNING_CENTER, dest=NO_BATTERY)
 
         self.add_behaviour(cyclic)
         self.add_behaviour(s_machine)

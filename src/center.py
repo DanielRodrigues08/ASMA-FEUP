@@ -42,10 +42,15 @@ class SendOrder(State):
 
     async def run(self):
 
+
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
-
+        if not delta(self.agent.dispatch_timer, TIMEOUT_MESSAGES):
+            self.set_next_state(SEND_ORDER)
+            return
+        
+        self.agent.dispatch_timer = datetime.datetime.now()
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:
@@ -172,7 +177,6 @@ class Auction(State):
                 len(accepted_orders & set(bid["id_orders"])) == 0
                 and bid["sender"] not in accepted_drones
             ):
-                print(f"FIXE FIXE")
                 accepted_bids.append(bid)
                 accepted_orders.update(set(bid["id_orders"]))
                 accepted_drones.add(bid["sender"])
@@ -232,7 +236,7 @@ class WaitOk(State):
 class Center(Agent):
 
     def __init__(
-        self, jid, password, position, orders, drones, batch_size=2
+        self, jid, password, position, orders, drones, batch_size=1
     ):
 
         super().__init__(jid, password)
@@ -240,6 +244,7 @@ class Center(Agent):
         self.orders = orders
         self.standby = False
         self.drones = drones
+        self.dispatch_timer = datetime.datetime.now()
         self.timer = datetime.datetime.now()
         self.batch_size = batch_size
         self.pending_orders = []
@@ -275,6 +280,7 @@ class Center(Agent):
         s_machine.add_transition(source=RECEIVE_BIDS, dest=RECEIVE_BIDS)
 
         s_machine.add_transition(source=SEND_ORDER, dest=RECEIVE_BIDS)
+
         s_machine.add_transition(source=RECEIVE_BIDS, dest=AUCTION)
         s_machine.add_transition(source=AUCTION, dest=SEND_ORDER)
         s_machine.add_transition(source=AUCTION, dest=WAIT_OK)
