@@ -28,13 +28,13 @@ def create_gui(n, func, values, centers, bases,):
         ax.clear()
         
         # Set the map extent based on drone positions
-        ax.set_extent([min_lon-0.005, max_lon+0.005, min_lat-0.005, max_lat+0.005], crs=ccrs.PlateCarree())
+        ax.set_extent([min_lon-0.05, max_lon+0.05, min_lat-0.05, max_lat+0.05], crs=ccrs.PlateCarree())
         
         # Plot world map background
         ax.add_feature(cfeature.COASTLINE)
         ax.add_feature(cfeature.BORDERS, linestyle=':')
 
-        #ax.stock_img()
+        ax.stock_img()
         
         # Plot updated drone positions
         ax.scatter([lon for lat, lon in drone_coordinates], 
