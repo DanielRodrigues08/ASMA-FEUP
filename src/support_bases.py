@@ -41,7 +41,7 @@ class Waiting_1_msg(State):
     
 class Waiting_2_msg(State):
     async def run(self):
-        msg = await self.receive(timeout=10) #timeout de espera por 2 msg
+        msg = await self.receive(timeout=1) #timeout de espera por 2 msg
         
         if msg is None:
             self.set_next_state(WAITING_1_MSG)
@@ -67,7 +67,8 @@ class Waiting_Meeting(State):
         for drone in self.agent.drones_close:
             msg = Message(to=str(drone))
             msg.body = json.dumps({"type": "UPDATE_ORDERS", "position": self.agent.position})
-            await self.send(msg)        
+            await self.send(msg)  
+            print("SENT")      
         
         msg_1 = await self.receive(timeout=120)
         msg_2 = await self.receive(timeout=120)

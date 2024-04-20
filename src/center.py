@@ -83,7 +83,6 @@ class SendOrder(State):
             msg.body = payload
             msg.set_metadata("performative", "inform")
             await self.send(msg)
-            print("SENT", payload)
 
         
         self.agent.timer = datetime.datetime.now()
@@ -158,8 +157,6 @@ class Auction(State):
         accepted_bids = []
         accepted_orders = set()
         accepted_drones = set()
-
-        print("PENDING", self.agent.bids)
         
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):

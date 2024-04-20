@@ -157,7 +157,6 @@ class WaitingAccept(State):
                 for order in pending_orders:
                     if order["id"] == id_order:
                         self.agent.orders.append(order)
-                        print("AGENT", self.agent.jid, "ORDERS", self.agent.orders)
                         self.agent.target_queue.append({'type':'center', 'id': str(center).split('@')[0],'lat': self.agent.centers[str(center).split("@")[0]]['lat'],
                                                       'lon':self.agent.centers[str(center).split("@")[0]]['lon']})
                         self.agent.target_queue.append({'type':'order', 'lat':order['lat'], 'lon':order['lon'], 'weight':order['weight']})
@@ -336,7 +335,6 @@ class DroneAgent(Agent):
                                         self.agent.returning_center = False
                             else:
                                 if self.agent.going_base:
-                                    print("YEAHHHH")
                                     print("Drone arrived at the support base")
                                     msg = Message(to=str(self.agent.current_base))
                                     msg.body = json.dumps(
@@ -354,6 +352,7 @@ class DroneAgent(Agent):
                         base_collision != None
                         and base_collision not in self.agent.base_collisions
                         and len(self.agent.orders) > 1
+                        and self.agent.delivering
                     ):
                         self.agent.base_collisions.append(base_collision)
                         msg = Message(
