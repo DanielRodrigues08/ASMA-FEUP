@@ -43,7 +43,6 @@ class SendOrder(State):
 
     async def run(self):
 
-
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
@@ -230,7 +229,7 @@ class WaitOk(State):
 class Center(Agent):
 
     def __init__(
-            self, jid, password, position, orders, drones, batch_size=1
+            self, jid, password, position, orders, drones, batch_size=3
     ):
         super().__init__(jid, password)
         self.position = position
