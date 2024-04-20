@@ -47,12 +47,6 @@ class SendOrder(State):
             self.set_next_state(STANDBY)
             return
 
-        # Only For Debug
-        if not self.agent.first:
-            time.sleep(10)
-        else:
-            self.agent.first = False
-
         self.agent.bids = []
 
         if len(self.agent.orders) == 0:

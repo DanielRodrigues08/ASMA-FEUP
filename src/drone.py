@@ -263,13 +263,13 @@ class DroneAgent(Agent):
 
             if len(self.agent.target_queue) > 0:
 
-                if self.agent.target_queue[0]["type"] == "order":
+                if self.agent.target_queue[0]["type"] == "ORDER":
                     self.agent.delivering = True
                     if not self.agent.block_timer:
                         self.agent.block_timer = True
                         self.agent.timer_for_stats = datetime.datetime.now()
                 else:
-                    if self.agent.target_queue[0]["type"] == "center":
+                    if self.agent.target_queue[0]["type"] == "CENTER":
                         self.agent.returning_center = True
                 target = (
                     self.agent.target_queue[0]["lat"],
@@ -316,13 +316,13 @@ class DroneAgent(Agent):
                             self.agent.orders.pop(0)
                             self.agent.target_queue.pop(0)
                             if len(self.agent.target_queue) > 0:
-                                if self.agent.target_queue[0]["type"] == "center":
+                                if self.agent.target_queue[0]["type"] == "CENTER":
                                     self.agent.delivering = False
                         else:
                             if self.agent.returning_center:
                                 self.agent.target_queue.pop(0)
                                 if len(self.agent.target_queue) > 0:
-                                    if self.agent.target_queue[0]["type"] == "order":
+                                    if self.agent.target_queue[0]["type"] == "ORDER":
                                         self.agent.returning_center = False
                             else:
                                 if self.agent.going_base:
@@ -430,7 +430,7 @@ class DroneAgent(Agent):
         check_need_to_add_center = False
 
         for target in reversed(self.target_queue):
-            if target["type"] == "center" and target["id"] == center_id:
+            if target["type"] == "CENTER" and target["id"] == center_id:
                 check_need_to_add_center = True
                 break
 
