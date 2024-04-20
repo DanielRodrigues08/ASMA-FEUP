@@ -118,7 +118,7 @@ def find_missing_orders(sub_list, pending_orders):
     missing_orders = [order for order in pending_orders if order['id'] not in existing_order_ids]
     return missing_orders
 
-def get_all_stats(stats):
+def get_all_stats(stats, times_drones, total_time):
     total_time = 0
     min_time = 0
     max_time = 0
@@ -130,6 +130,9 @@ def get_all_stats(stats):
     max_time = np.max(times)
     min_time = np.min(times)
     total_time = np.sum(times)
+    
+    for drone in times_drones:
+        print(f"Drone {drone['drone']} occupation rate {drone['time']/total_time}")
     
     print(f"Total time:", total_time, "s")
     print(f"Minimum time:", min_time, "s")

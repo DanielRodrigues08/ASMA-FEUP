@@ -50,6 +50,9 @@ class Listen(State):
         match payload["type"]:
 
             case "NEW_ORDERS":
+                if self.agent.block_timer_working == False:
+                    self.agent.timer_working = datetime.datetime.now()
+                    self.agent.block_timer_working = True
                 bids = []
 
                 # TODO: Change this
@@ -238,6 +241,8 @@ class DroneAgent(Agent):
         self.centers_over = 0
         self.going_base = False
         self.block_movement = False
+        self.timer_working = datetime.datetime.now()
+        self.block_timer_working = False
 
     def update_position(self, position):
         self.position = position
@@ -369,13 +374,14 @@ class DroneAgent(Agent):
                 and self.agent.centers_over == self.agent.num_centers
             ):
                 print("Drone finished all deliveries")
+                timer_working = (datetime.datetime.now() - self.agent.timer_working).total_seconds()
                 for center in self.agent.centers:
                     msg = Message(
                         to=str(center) + "@localhost",
-                        body=json.dumps({"type": "STATS", "stats": self.agent.stats}),
+                        body=json.dumps({"type": "STATS", "stats": self.agent.stats, "time": timer_working}),
                     )
                     msg.set_metadata("performative", "inform")
-                    await self.send(msg)
+                    await self.send(msg)   
                 await self.agent.stop()
 
             self.agent.global_timer = datetime.datetime.now()
