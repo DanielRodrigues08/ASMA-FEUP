@@ -6,6 +6,7 @@ from spade.behaviour import PeriodicBehaviour, State, FSMBehaviour
 from spade.message import Message
 from utils import delta, get_all_stats
 import time
+import asyncio
 
 TIMEOUT_MESSAGES = 2
 
@@ -83,7 +84,6 @@ class SendOrder(State):
             msg.body = payload
             msg.set_metadata("performative", "inform")
             await self.send(msg)
-            print("SENT", payload)
 
         
         self.agent.timer = datetime.datetime.now()
@@ -97,18 +97,20 @@ class Stats(State):
         if msg is None:
             self.set_next_state(STATS)
             return
-
+    
         payload = json.loads(msg.body)
         
         match payload["type"]:
             case "STATS":
                 print(f"Center {self.agent.jid} received stats from {msg.sender}")
                 self.agent.final_stats_drones.append(payload["stats"])
+                self.agent.final_stats_times.append({"drone": str(msg.sender).split("@")[0] ,"time": payload["time"]})
                 if len(self.agent.final_stats_drones) != len(self.agent.drones):
                     self.set_next_state(STATS)
                     return
                 else:
-                    get_all_stats(self.agent.final_stats_drones)
+                    total_time_system = (datetime.datetime.now() - self.agent.system_timer).total_seconds()
+                    get_all_stats(self.agent.final_stats_drones, self.agent.final_stats_times, total_time_system)
                     await self.agent.stop()
                     return
         
@@ -125,6 +127,9 @@ class ReceiveBids(State):
         msg = await self.receive(timeout=0)
 
         if msg:
+            if self.agent.block_timer == False:
+                self.agent.system_timer = datetime.datetime.now()
+                self.agent.block_timer = True
             body = json.loads(msg.body)
             if body["type"] == "BIDS":
                 # print(f"Center received bid from {msg.sender}")
@@ -158,8 +163,6 @@ class Auction(State):
         accepted_bids = []
         accepted_orders = set()
         accepted_drones = set()
-
-        print("PENDING", self.agent.bids)
         
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):
@@ -241,7 +244,10 @@ class Center(Agent):
         self.batch_size = batch_size
         self.pending_orders = []
         self.final_stats_drones = []
+        self.final_stats_times = []
         self.counter_bids_recv = 0
+        self.system_timer = None
+        self.block_timer = False
 
         # Only For Debug
         self.first = True
