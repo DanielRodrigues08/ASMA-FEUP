@@ -131,15 +131,24 @@ def get_all_stats(stats, times_drones, total_time_working):
     min_time = np.min(times)
     total_time = np.sum(times)
     
+    dict_drone_time = []
+    
     for drone in times_drones:
         time_working = drone['time'] / total_time_working
         if time_working > 1.0:
             time_working = 1.0
+        dict_drone_time.append({'drone': drone['drone'], 'total_time': total_time, 'min_time': min_time, 'max_time': max_time, 'mean_time': mean_time, 'time_working': time_working})    
         print(f"Drone {drone['drone']} occupation rate {time_working}")
+    
+    dict_drone_time = sorted(dict_drone_time, key=lambda x: x['drone'])
     
     print(f"Total time:", total_time, "s")
     print(f"Minimum time:", min_time, "s")
     print(f"Maximum time:", max_time, "s")
     print(f"Mean time:", mean_time, "s")
     
-    return total_time, min_time, max_time, mean_time
+    df = pd.DataFrame(dict_drone_time)
+    
+    df.to_csv('../stats/drone_stats.csv', sep=';', index=False)
+    
+    return total_time, min_time, max_time, mean_time, dict_drone_time
