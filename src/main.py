@@ -3,6 +3,7 @@ import spade
 import platform
 import multiprocessing
 import os
+import random
 from drone import DroneAgent
 from ambient import Ambient
 from center import Center
@@ -31,18 +32,49 @@ centers_data = centers_to_dict(centers_data)
 orders_data = orders_to_dict(orders_data)
 drones_data = position_drones(drones_data, centers_data)
 
+print("CENTERS", centers_data)
+print("ORDERS", orders_data)
+
+def get_values():
+
+    min_lat = 999999
+    max_lat = -999999
+    min_lon = 999999
+    max_lon = -999999
+
+    for center in centers_data:
+        min_lat = min(min_lat, center['lat'])
+        max_lat = max(max_lat, center['lat'])
+        min_lon = min(min_lon, center['lon'])
+        max_lon = max(max_lon, center['lon'])
+    
+    for order in orders_data[0]['orders']:
+        min_lat = min(min_lat, order[1])
+        max_lat = max(max_lat, order[1])
+        min_lon = min(min_lon, order[2])
+        max_lon = max(max_lon, order[2])
+
+    return {
+        "min_lat": min_lat,
+        "max_lat": max_lat,
+        "min_lon": min_lon,
+        "max_lon": max_lon
+    }
+    
 def create_system():
 
     drones      = []
 
     support_bases = []
-    support_base = SupportBase(
-        "support_base@localhost", "support_base", (18.995000, 72.826000)
-    )
-    support_bases.append(support_base)
-    print(centers_data)
+    
+    values = get_values()
+    
+    for i in range(1,16):
+        base_jid = "support_base_" + str(i) + "@localhost"
+        support_base = SupportBase(base_jid, "support_base", (random.uniform(values["min_lat"], values["max_lat"]), random.uniform(values["min_lon"], values["max_lon"])))
+        support_bases.append(support_base)
+        
     centers_dict = {center["id"] + "@localhost": {"id": center["id"] + "@localhost", "type": "CENTER", "lat": center["lat"], "lon": center["lon"]} for center in centers_data}
-    print(centers_dict)
     for drone_data in drones_data:
         
         drones.append(
@@ -84,7 +116,6 @@ ambient, centers, drones, support_bases = create_system()
 
 async def main():
 
-
     await ambient.start(auto_register=True)
 
     for drone in drones:
@@ -92,6 +123,7 @@ async def main():
 
     for center in centers:
         await center.start(auto_register=True)
+
     for base in support_bases:
         await base.start(auto_register=True)
    
@@ -108,39 +140,7 @@ def update_position(position, id=0):
 def run_spade():
     spade.run(main())
 
-def get_values():
-
-    min_lat = 999999
-    max_lat = -999999
-    min_lon = 999999
-    max_lon = -999999
-
-    for center in centers:
-        min_lat = min(min_lat, center.position[0])
-        max_lat = max(max_lat, center.position[0])
-        min_lon = min(min_lon, center.position[1])
-        max_lon = max(max_lon, center.position[1])
-
-    for drone in drones:
-        min_lat = min(min_lat, drone.position[0])
-        max_lat = max(max_lat, drone.position[0])
-        min_lon = min(min_lon, drone.position[1])
-        max_lon = max(max_lon, drone.position[1])
-    
-    for order in orders_data[0]['orders']:
-        min_lat = min(min_lat, order[1])
-        max_lat = max(max_lat, order[1])
-        min_lon = min(min_lon, order[2])
-        max_lon = max(max_lon, order[2])
-
-    return {
-        "min_lat": min_lat,
-        "max_lat": max_lat,
-        "min_lon": min_lon,
-        "max_lon": max_lon
-    }
         
-
 if __name__ == "__main__":
 
     values  = get_values()
