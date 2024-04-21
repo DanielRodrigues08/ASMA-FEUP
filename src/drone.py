@@ -233,12 +233,16 @@ class DroneAgent(Agent):
                     return base
             return None
 
-        def delivery(self):
+        async def delivery(self):
 
             self.agent.block_timer = False
             time_to_deliver = (
                 datetime.datetime.now() - self.agent.timer_for_stats
             ).total_seconds()
+            
+            msg = Message(to = str(self.agent.target_queue[0]["center_order"]) + "@localhost")
+            msg.body = json.dumps({"type": "DELIVERED", "order": self.agent.target_queue[0]['id']})
+            await self.send(msg)
 
             self.agent.stats.append(
                 {"order": self.agent.target_queue[0], "time": time_to_deliver}
@@ -367,7 +371,7 @@ class DroneAgent(Agent):
 
                 match self.agent.state:
                     
-                    case "DELIVERING":       self.delivery()
+                    case "DELIVERING":       await self.delivery()
                     case "RETURNING_CENTER": self.return_center()
                     case "GOING_BASE":       await self.going_base()
                     case _:                  pass

@@ -80,6 +80,7 @@ class SendOrder(State):
                     "lat": float(order[1]),
                     "lon": float(order[2]),
                     "weight": int(order[3]),
+                    "center_order": self.agent.jid[0],
                 }
                 for order in orders
             ],
@@ -226,6 +227,11 @@ class WaitOk(State):
             payload = json.loads(msg.body)
             if payload["type"] == "OK":
                 self.agent.confirmed_orders += self.agent.accepted_bids[str(msg.sender)]
+                print("BIDS", self.agent.accepted_bids[str(msg.sender)])
+                if str(msg.sender) in self.agent.drones_orders:
+                    self.agent.drones_orders[str(msg.sender)] = self.agent.drones_orders[str(msg.sender)] + self.agent.accepted_bids[str(msg.sender)]
+                else: 
+                    self.agent.drones_orders[str(msg.sender)] = self.agent.accepted_bids[str(msg.sender)]
 
         self.set_next_state(WAIT_OK)
 
@@ -251,6 +257,7 @@ class Center(Agent):
         self.counter_bids_recv = 0
         self.system_timer = None
         self.block_timer = False
+        self.drones_orders = {}
 
 
     class Behav1(OneShotBehaviour):
@@ -283,17 +290,34 @@ class Center(Agent):
     class CheckOrders(PeriodicBehaviour):
 
         async def run(self):
+            msg = await self.receive(timeout=0)
+            if msg:
+                payload = json.loads(msg.body)
+                if payload["type"] == "DELIVERED":
+                    print("RECEBIDA")
+                    for order in self.agent.drones_orders[str(msg.sender)]:
+                        if order == payload["order"]:
+                            self.agent.drones_orders[str(msg.sender)].remove(order)
+                            print("SIGA", self.agent.drones_orders)
+                            break
+            
             contacts   = self.agent.presence.get_contacts()
             for contact in contacts:
                 if contacts[contact]['presence'].type_ == PresenceType.UNAVAILABLE:
-                    print(contact)
-                    print("AAAAAAA", contacts[contact]['JID'])
+                    # passar as orders para array orders
+                    print("CONTACTO", contact)
+                    print("ORDERS DELE", self.agent.drones_orders[str(contact)])
+                    if (len(self.agent.drones_orders[str(contact)]) > 0):
+                        self.agent.orders = self.agent.orders + self.agent.drones_orders[str(contact)]
+                        self.agent.drones_orders[str(contact)] = []
+                        print("NEW ORDERS", self.agent.orders)
+                    
                 
 
     async def setup(self):
         
         s_machine = StateBehaviour()
-        cyclic    = self.CheckOrders(period=1)
+        cyclic    = self.CheckOrders(period=0.5)
 
         s_machine.add_state(name=SEND_ORDER, state=SendOrder(), initial=True)
         s_machine.add_state(name=RECEIVE_BIDS, state=ReceiveBids())
