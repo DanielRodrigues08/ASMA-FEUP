@@ -147,6 +147,7 @@ if __name__ == "__main__":
     manager = multiprocessing.Manager()
     proxy   = manager.list()
 
+
     for drone in drones:
 
         new_xy      = manager.dict()
@@ -155,26 +156,24 @@ if __name__ == "__main__":
         drone.xy = new_xy
         drone.standby = multiprocessing.Value('b', False)
         proxy.append(drone.xy)
-    
+        drone.sim_speed = multiprocessing.Value('i', 1)
 
-    
 
     for center in centers:
         center.standby = multiprocessing.Value('b', False)
 
     drones_stands  = [drone.standby for drone in drones]
     centers_stands = [center.standby for center in centers]
-
+    speeds_values  = [drone.sim_speed for drone in drones]
     ambient.trigger = manager.dict()
     ambient.trigger['Raining'] = False
     ambient.trigger['Windy']   = False
-    ambient.trigger['Sunny']   = False
 
-    #p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
-    #p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
+    p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger, speeds_values))
+    p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))
 
-    #p1.start()    
-    #p3.start()
+    p1.start()    
+    p3.start()
     run_spade()
-    #p1.join()
-    #p3.join()
+    p1.join()
+    p3.join()
