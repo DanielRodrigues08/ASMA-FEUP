@@ -32,15 +32,46 @@ centers_data = centers_to_dict(centers_data)
 orders_data = orders_to_dict(orders_data)
 drones_data = position_drones(drones_data, centers_data)
 
+print("CENTERS", centers_data)
+print("ORDERS", orders_data)
+
+def get_values():
+
+    min_lat = 999999
+    max_lat = -999999
+    min_lon = 999999
+    max_lon = -999999
+
+    for center in centers_data:
+        min_lat = min(min_lat, center['lat'])
+        max_lat = max(max_lat, center['lat'])
+        min_lon = min(min_lon, center['lon'])
+        max_lon = max(max_lon, center['lon'])
+    
+    for order in orders_data[0]['orders']:
+        min_lat = min(min_lat, order[1])
+        max_lat = max(max_lat, order[1])
+        min_lon = min(min_lon, order[2])
+        max_lon = max(max_lon, order[2])
+
+    return {
+        "min_lat": min_lat,
+        "max_lat": max_lat,
+        "min_lon": min_lon,
+        "max_lon": max_lon
+    }
+    
 def create_system():
 
     drones      = []
 
     support_bases = []
     
+    values = get_values()
+    
     for i in range(1,16):
         base_jid = "support_base_" + str(i) + "@localhost"
-        support_base = {"jid": base_jid, "pass": "support_base", "pos":(1,1)}
+        support_base = SupportBase(base_jid, "support_base", (random.uniform(values["min_lat"], values["max_lat"]), random.uniform(values["min_lon"], values["max_lon"])))
         support_bases.append(support_base)
         
     centers_dict = {center["id"] + "@localhost": {"id": center["id"] + "@localhost", "type": "CENTER", "lat": center["lat"], "lon": center["lon"]} for center in centers_data}
@@ -93,8 +124,6 @@ async def main():
         await drone.start(auto_register=True)
         
     for base in support_bases:
-        base = SupportBase(base["jid"], base["pass"], (random.uniform(values["min_lat"], values["max_lat"]), random.uniform(values["min_lon"], values["max_lon"])))
-        print("POS", base.position)
         await base.start(auto_register=True)
    
     
@@ -110,33 +139,7 @@ def update_position(position, id=0):
 def run_spade():
     spade.run(main())
 
-def get_values():
-
-    min_lat = 999999
-    max_lat = -999999
-    min_lon = 999999
-    max_lon = -999999
-
-    for center in centers:
-        min_lat = min(min_lat, center.position[0])
-        max_lat = max(max_lat, center.position[0])
-        min_lon = min(min_lon, center.position[1])
-        max_lon = max(max_lon, center.position[1])
-    
-    for order in orders_data[0]['orders']:
-        min_lat = min(min_lat, order[1])
-        max_lat = max(max_lat, order[1])
-        min_lon = min(min_lon, order[2])
-        max_lon = max(max_lon, order[2])
-
-    return {
-        "min_lat": min_lat,
-        "max_lat": max_lat,
-        "min_lon": min_lon,
-        "max_lon": max_lon
-    }
         
-
 if __name__ == "__main__":
 
     values  = get_values()
