@@ -17,11 +17,11 @@ STANDBY = "STANDBY"
 
 class StateBehaviour(FSMBehaviour):
     async def on_start(self):
-        # print(f"FSM starting at initial state {self.current_state}")
+
         pass
 
     async def on_end(self):
-        # print(f"FSM finished at state {self.current_state}")
+
         await self.agent.stop()
 
 
@@ -51,6 +51,8 @@ class Listen(State):
                 counter = 0
 
                 for order in payload["orders"]:
+
+                    self.order_to_center[order["id"]] = str(msg.sender)
                     value, add_center = self.agent.utility([order], str(msg.sender))
                     if value == -1:
                         continue
@@ -65,7 +67,7 @@ class Listen(State):
                     self.agent.pending["bids"][counter] = {"orders": [order], "add_center": add_center}
                     counter += 1
 
-                bids.extend(self.agent.bid_combinations(payload["orders"], msg.sender))
+                bids.extend(self.agent.bid_combinations(payload["orders"], msg.sender, counter))
                 ans = Message(to=str(msg.sender))
                 ans.body = json.dumps({"type": "BIDS", "bids": bids})
                 ans.set_metadata("performative", "propose")
@@ -90,7 +92,7 @@ class Listen(State):
                 return
 
             case "REARRANGE_ORDERS":
-                self.agent.orders = [self.agent.orders[0]]
+
                 result = self.agent.rearrange_orders_base(payload["orders"])
                 answer = Message(to=str(msg.sender))
 
@@ -103,9 +105,8 @@ class Listen(State):
                 return
 
             case "REARRANGE_DONE":
-                self.agent.orders = [self.agent.orders[0]] + payload["new_orders"]
 
-                self.agent.target_queue.pop(0)
+                self.agent.target_queue = payload["new_orders"]
                 self.agent.state = None
                 self.agent.block_movement = False
                 self.set_next_state(LISTEN)
@@ -142,6 +143,7 @@ class WaitingAccept(State):
             return
 
         payload = json.loads(msg.body)
+
         if payload["type"] == "ACCEPT":
 
             bid = self.agent.pending["bids"][payload["id_bid"]]
@@ -180,10 +182,10 @@ class DroneAgent(Agent):
         self.target_queue = []
         self.state = None
 
-        self.centers   = centers  
-        self.sim_speed = 10
+        self.centers         = centers  
+        self.sim_speed       = 10
+        self.order_to_center = {}
 
-        self.orders = []
         self.position = position
         self.bases = [] if support_bases is None else support_bases
         self.pending = None
@@ -238,10 +240,9 @@ class DroneAgent(Agent):
             ).total_seconds()
 
             self.agent.stats.append(
-                {"order": self.agent.orders[0], "time": time_to_deliver}
+                {"order": self.agent.target_queue[0], "time": time_to_deliver}
             )
 
-            self.agent.orders.pop(0)
             self.agent.target_queue.pop(0)
 
         def return_center(self):
@@ -251,8 +252,9 @@ class DroneAgent(Agent):
         async def going_base(self):
             
             msg = Message(to=str(self.agent.current_base))
+            self.agent.target_queue.pop(0)
             msg.body = json.dumps(
-                {"type": "ARRIVED", "orders": self.agent.orders[1:]}
+                {"type": "ARRIVED", "orders": [x for x in self.agent.target_queue if x["type"] == "ORDER"]}
             )
 
             self.agent.block_movement = True
@@ -275,6 +277,7 @@ class DroneAgent(Agent):
 
 
         def assign_pos(self):
+
             self.agent.xy["x"] = self.agent.position[0]
             self.agent.xy["y"] = self.agent.position[1]
 
@@ -315,7 +318,7 @@ class DroneAgent(Agent):
             if (
                 base_collision != None
                 and base_collision not in self.agent.base_collisions
-                and len(self.agent.orders) > 1
+                and len(self.agent.target_queue) > 1
                 and self.agent.state == "DELIVERING"
             ):
                 self.agent.base_collisions.append(base_collision)
@@ -331,7 +334,6 @@ class DroneAgent(Agent):
 
             if (
                     len(self.agent.target_queue) == 0
-                    and len(self.agent.orders) == 0
                     and self.agent.centers_over == self.agent.num_centers
             ):
                 
@@ -372,36 +374,32 @@ class DroneAgent(Agent):
             await self.deal_with_collisions()
             self.agent.global_timer = datetime.datetime.now()
 
-    def bid_combinations(self, orders, center_jid):
+    def bid_combinations(self, orders, center_jid, counter):
 
         possible_combos = []
         all_combos      = []
         bids            = []
 
-        existing_weight = sum(order["weight"] for order in self.orders)
-
-        for r in range(2, len(orders)):
-            possible_combos = possible_combos + [
-                list(perm) for perm in permutations(orders, r)
-            ]
-
-        filtered_combos = [
-            combo
-            for combo in possible_combos
-            if sum(order["weight"] for order in combo) + existing_weight <= self.max_capacity
-        ]
-
+        existing_weight = sum(order["weight"] for order in self.target_queue if order["type"] == "ORDER")
+        filtered_combos = self.generate_combos(orders, 2, existing_weight)
 
         all_combos.extend(filtered_combos)
+
+        index = counter + 1
         for combo in all_combos:
 
-            util, _ = self.utility(combo, center_jid)
+            util, add_center = self.utility(combo, center_jid)
             bids.append(
                 {
                     "id_orders": [c["id"] for c in combo],
                     "value": util,
                     "sender": str(self.jid),
+                    "id_bid": index
+                        
                 })
+            
+            counter += 1
+            self.agent.pending["bids"][counter] = {"orders": combo, "add_center": add_center}
 
         return bids
     
@@ -490,32 +488,42 @@ class DroneAgent(Agent):
 
         return self.utility_value(temp_target_queue[:-1]), add_center
 
-    def rearrange_orders_base(self, pending_orders):
-        possible_combos = []
-        all_combos = []
-        utility_drone_1 = []
+    def generate_combos(self, pending_orders, n=1, e = 0):
 
-        for r in range(1, len(pending_orders)):
+        possible_combos = []
+
+        for r in range(n, len(pending_orders)):
             possible_combos = possible_combos + [
                 list(perm) for perm in permutations(pending_orders, r)
             ]
+
         filtered_combos = [
             combo
             for combo in possible_combos
-            if sum(order["weight"] for order in combo) <= self.max_capacity
+            if sum(order["weight"] for order in combo) + e <= self.max_capacity
         ]
+
+        return filtered_combos
+
+    def rearrange_orders_base(self, pending_orders):
+
+        all_combos      = []
+        utilities       = []
+
+        filtered_combos = self.generate_combos(pending_orders, 1, 0)
         all_combos.extend(filtered_combos)
+
         for combo in all_combos:
-            utility_1 = 0
-            for _ in combo:
-                utility_1 = utility_1 + 1
-            utility_data_1 = (combo, utility_1)
+            temp_target_queue = []
+            for order in combo:
+                temp_target_queue.append(self.order_to_center[order["id"]])
+                temp_target_queue.append(order)
+            temp_target_queue.pop(0)
+            util = self.utility_value(temp_target_queue)
+            utilities.append((combo, util))
 
-            utility_drone_1.append(utility_data_1)
-
-        utility_drone_1 = sorted(utility_drone_1, key=lambda x: x[1], reverse=True)
-
-        return utility_drone_1
+        utilities = sorted(utilities, key=lambda x: x[1], reverse=True)
+        return utilities
 
     async def setup(self):
 
@@ -535,4 +543,4 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
 
         self.add_behaviour(cyclic)
-        self.add_behaviour(s_machine)
+        self.add_beha_viour(s_machine)

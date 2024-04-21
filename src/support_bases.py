@@ -21,6 +21,7 @@ class StateBehaviour(FSMBehaviour):
 
 class Waiting_1_msg(State):
     async def run(self):
+
         self.agent.drones_close = []
         self.agent.orders_rearrange = []
         msg = await self.receive(timeout=0)
@@ -44,7 +45,7 @@ class Waiting_1_msg(State):
 
 class Waiting_2_msg(State):
     async def run(self):
-        msg = await self.receive(timeout=1)  # timeout de espera por 2 msg
+        msg = await self.receive(timeout=1)
 
         if msg is None:
             self.set_next_state(WAITING_1_MSG)
@@ -102,16 +103,17 @@ class Rearrangement(State):
         print(payload_1["reordered"][0][1])
 
         if (payload_1["reordered"][0][1] >= payload_2["reordered"][0][1]):
-            best_option = payload_1["reordered"][0]
-            best_drone = msg1.sender
-            worst_drone = msg2.sender
+            best_option   = payload_1["reordered"][0]
+            best_drone    = msg1.sender
+            worst_drone   = msg2.sender
             second_option = payload_2["reordered"]
-        else:
-            best_option = payload_2["reordered"][0]
-            best_drone = msg2.sender
-            worst_drone = msg1.sender
-            second_option = payload_1["reordered"]
 
+        else:
+            best_option   = payload_2["reordered"][0]
+            best_drone    = msg2.sender
+            worst_drone   = msg1.sender
+            second_option = payload_1["reordered"]
+    
         second_arrange_orders = find_missing_orders(best_option, self.agent.orders_rearrange)
         second_arrange_ids = []
 
