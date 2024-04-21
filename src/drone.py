@@ -106,8 +106,8 @@ class Listen(State):
 
             case "REARRANGE_DONE":
 
-                self.agent.target_queue = payload["new_orders"]
-                self.agent.state = None
+                self.agent.target_queue   = payload["new_orders"]
+                self.agent.state          = None
                 self.agent.block_movement = False
                 self.set_next_state(LISTEN)
                 return
