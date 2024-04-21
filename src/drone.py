@@ -2,12 +2,12 @@ import spade
 import json
 import asyncio
 from spade.agent import Agent
-from spade.behaviour import FSMBehaviour, State, CyclicBehaviour
+from spade.behaviour import FSMBehaviour, OneShotBehaviour, State, CyclicBehaviour
 from spade.message import Message
 from utils import msg_orders_to_list, haversine_distance, delta
 import datetime
 from itertools import permutations
-import math
+
 
 LISTEN = "LISTEN"
 NO_BATTERY = "NO_BATTERY"
@@ -529,9 +529,36 @@ class DroneAgent(Agent):
 
         utilities = sorted(utilities, key=lambda x: x[1], reverse=True)
         return utilities
+    
+    class Behav2(OneShotBehaviour):
+        def on_available(self, jid, stanza):
+            print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
+
+        def on_subscribed(self, jid):
+            print("[{}] Agent {} has accepted the subscription.".format(self.agent.name, jid.split("@")[0]))
+            print("[{}] Contacts List: {}".format(self.agent.name, self.agent.presence.get_contacts()))
+
+        def on_subscribe(self, jid):
+            print("[{}] Agent {} asked for subscription. Let's aprove it.".format(self.agent.name, jid.split("@")[0]))
+            self.presence.approve(jid)
+            self.presence.subscribe(jid)
+
+
+        async def run(self):
+            
+
+            self.presence.set_available()
+            print(self.presence.state)
+
+            self.approve_all = True
+
+            self.presence.on_subscribe = self.on_subscribe
+            self.presence.on_subscribed = self.on_subscribed
+            self.presence.on_available = self.on_available
 
     async def setup(self):
 
+        
         s_machine = StateBehaviour()
         cyclic = self.UpdatePosition()
 
@@ -547,5 +574,6 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=LISTEN, dest=WAITING_ACCEPT)
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
 
+        self.add_behaviour(self.Behav2())
         self.add_behaviour(cyclic)
         self.add_behaviour(s_machine)

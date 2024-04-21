@@ -117,12 +117,13 @@ ambient, centers, drones, support_bases = create_system()
 async def main():
 
     await ambient.start(auto_register=True)
-    for center in centers:
-        await center.start(auto_register=True)
 
     for drone in drones:
         await drone.start(auto_register=True)
-        
+
+    for center in centers:
+        await center.start(auto_register=True)
+
     for base in support_bases:
         await base.start(auto_register=True)
    
@@ -168,7 +169,6 @@ if __name__ == "__main__":
     ambient.trigger['Raining'] = False
     ambient.trigger['Windy']   = False
     ambient.trigger['Sunny']   = False
-
 
     #p1 = multiprocessing.Process(target=create_window, args=(drones_stands, centers_stands, ambient.trigger))
     #p3 = multiprocessing.Process(target=create_gui, args=(len(drones), proxy, values, [center.position for center in centers], [base.position for base in support_bases]))

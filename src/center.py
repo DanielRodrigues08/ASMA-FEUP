@@ -2,13 +2,17 @@ import datetime
 import json
 import spade
 from spade.agent import Agent
-from spade.behaviour import PeriodicBehaviour, State, FSMBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour, State, FSMBehaviour, PeriodicBehaviour
 from spade.message import Message
 from utils import delta, get_all_stats
 import time
+from aioxmpp import PresenceType
+
 import asyncio
 
 TIMEOUT_MESSAGES = 2
+from aioxmpp import PresenceType
+
 
 SEND_ORDER = "SEND_ORDER"
 RECEIVE_BIDS = "RECEIVE_BIDS"
@@ -226,6 +230,8 @@ class WaitOk(State):
         self.set_next_state(WAIT_OK)
 
 
+
+
 class Center(Agent):
 
     def __init__(
@@ -246,11 +252,51 @@ class Center(Agent):
         self.system_timer = None
         self.block_timer = False
 
-        # Only For Debug
-        self.first = True
+
+    class Behav1(OneShotBehaviour):
+
+        def on_available(self, jid, stanza):
+            print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
+
+        def on_subscribed(self, jid):
+            print("[{}] Agent {} has accepted the subscription.".format(self.agent.name, jid.split("@")[0]))
+            print("[{}] Contacts List: {}".format(self.agent.name, self.agent.presence.get_contacts()))
+
+        def on_subscribe(self, jid):
+            print("[{}] Agent {} asked for subscription. Let's aprove it.".format(self.agent.name, jid.split("@")[0]))
+            self.presence.approve(jid)
+
+        async def run(self):
+
+
+            self.presence.set_available()
+
+            
+            self.presence.on_subscribe  = self.on_subscribe
+            self.presence.on_subscribed = self.on_subscribed
+            self.presence.on_available  = self.on_available
+
+            self.approve_all = True
+
+            for drone in self.agent.drones:
+                self.presence.subscribe(str(drone))   
+            print("Added contacts")
+            
+    class CheckOrders(PeriodicBehaviour):
+
+        async def run(self):
+            print(self.agent.presence.get_contacts())
+            contacts   = self.agent.presence.get_contacts()
+            for contact in contacts:
+                if "presence" not in contacts[contact]:
+                    continue
+                print("Has Presence - ", contacts[contact])
+        
 
     async def setup(self):
+        
         s_machine = StateBehaviour()
+        cyclic    = self.CheckOrders(period=2)
 
         s_machine.add_state(name=SEND_ORDER, state=SendOrder(), initial=True)
         s_machine.add_state(name=RECEIVE_BIDS, state=ReceiveBids())
@@ -277,7 +323,10 @@ class Center(Agent):
         s_machine.add_transition(source=WAIT_OK, dest=SEND_ORDER)
         s_machine.add_transition(source=WAIT_OK, dest=WAIT_OK)
 
+
+        self.add_behaviour(self.Behav1())
         self.add_behaviour(s_machine)
+        self.add_behaviour(cyclic)
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
