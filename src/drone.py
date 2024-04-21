@@ -52,7 +52,7 @@ class Listen(State):
 
                 for order in payload["orders"]:
 
-                    self.order_to_center[order["id"]] = str(msg.sender)
+                    self.agent.order_to_center[order["id"]] = str(msg.sender)
                     value, add_center = self.agent.utility([order], str(msg.sender))
                     if value == -1:
                         continue
@@ -399,7 +399,7 @@ class DroneAgent(Agent):
                 })
             
             counter += 1
-            self.agent.pending["bids"][counter] = {"orders": combo, "add_center": add_center}
+            self.pending["bids"][counter] = {"orders": combo, "add_center": add_center}
 
         return bids
     
@@ -516,8 +516,10 @@ class DroneAgent(Agent):
         for combo in all_combos:
             temp_target_queue = []
             for order in combo:
+                print("ORDER", order)
                 temp_target_queue.append(self.order_to_center[order["id"]])
                 temp_target_queue.append(order)
+            print("TEMP", temp_target_queue)    
             temp_target_queue.pop(0)
             util = self.utility_value(temp_target_queue)
             utilities.append((combo, util))
@@ -543,4 +545,4 @@ class DroneAgent(Agent):
         s_machine.add_transition(source=WAITING_ACCEPT, dest=WAITING_ACCEPT)
 
         self.add_behaviour(cyclic)
-        self.add_beha_viour(s_machine)
+        self.add_behaviour(s_machine)
