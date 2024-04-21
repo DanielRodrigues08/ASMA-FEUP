@@ -7,7 +7,7 @@ from spade.message import Message
 from utils import msg_orders_to_list, haversine_distance, delta
 import datetime
 from itertools import permutations
-
+import random
 
 LISTEN = "LISTEN"
 NO_BATTERY = "NO_BATTERY"
@@ -112,7 +112,14 @@ class Listen(State):
                 self.agent.block_movement = False
                 self.set_next_state(LISTEN)
                 return
+            case "AMBIENT":
+                if payload["condition"] == "Windy":
+                    self.agent.velocity /= 2
 
+                if payload["condition"] == "Raining":
+                    if random.random() > 0.5:
+                        await self.agent.stop()
+                    
             case "FINISHED":
                 self.agent.centers_over += 1
                 self.set_next_state(LISTEN)
@@ -184,7 +191,7 @@ class DroneAgent(Agent):
         self.state = None
 
         self.centers         = centers  
-        self.sim_speed       = 10
+        self.sim_speed       = None
         self.order_to_center = {}
 
         self.position = position
@@ -298,7 +305,7 @@ class DroneAgent(Agent):
                 self.agent.position[1],
                 target[0],
                 target[1],
-            ) * 1000 / self.agent.sim_speed
+            ) * 1000 / self.agent.sim_speed.value
 
 
             km = distance / 1000
