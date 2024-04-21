@@ -3,6 +3,7 @@ import spade
 import platform
 import multiprocessing
 import os
+import random
 from drone import DroneAgent
 from ambient import Ambient
 from center import Center
@@ -36,13 +37,13 @@ def create_system():
     drones      = []
 
     support_bases = []
-    support_base = SupportBase(
-        "support_base@localhost", "support_base", (18.995000, 72.826000)
-    )
-    support_bases.append(support_base)
-    print(centers_data)
+    
+    for i in range(1,16):
+        base_jid = "support_base_" + str(i) + "@localhost"
+        support_base = {"jid": base_jid, "pass": "support_base", "pos":(1,1)}
+        support_bases.append(support_base)
+        
     centers_dict = {center["id"] + "@localhost": {"id": center["id"] + "@localhost", "type": "CENTER", "lat": center["lat"], "lon": center["lon"]} for center in centers_data}
-    print(centers_dict)
     for drone_data in drones_data:
         
         drones.append(
@@ -84,14 +85,16 @@ ambient, centers, drones, support_bases = create_system()
 
 async def main():
 
-
     await ambient.start(auto_register=True)
     for center in centers:
         await center.start(auto_register=True)
 
     for drone in drones:
         await drone.start(auto_register=True)
+        
     for base in support_bases:
+        base = SupportBase(base["jid"], base["pass"], (random.uniform(values["min_lat"], values["max_lat"]), random.uniform(values["min_lon"], values["max_lon"])))
+        print("POS", base.position)
         await base.start(auto_register=True)
    
     
@@ -119,12 +122,6 @@ def get_values():
         max_lat = max(max_lat, center.position[0])
         min_lon = min(min_lon, center.position[1])
         max_lon = max(max_lon, center.position[1])
-
-    for drone in drones:
-        min_lat = min(min_lat, drone.position[0])
-        max_lat = max(max_lat, drone.position[0])
-        min_lon = min(min_lon, drone.position[1])
-        max_lon = max(max_lon, drone.position[1])
     
     for order in orders_data[0]['orders']:
         min_lat = min(min_lat, order[1])
