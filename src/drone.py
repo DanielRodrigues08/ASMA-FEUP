@@ -118,7 +118,7 @@ class Listen(State):
                 if payload["condition"] == "Raining":
                     if random.random() > 0.5:
                         await self.agent.stop()
-                    
+
             case "FINISHED":
                 self.agent.centers_over += 1
                 self.set_next_state(LISTEN)
@@ -189,8 +189,8 @@ class DroneAgent(Agent):
         self.target_queue = []
         self.state = None
 
-        self.centers         = centers  
-        self.sim_speed       = None
+        self.centers = centers
+        self.sim_speed = None
         self.order_to_center = {}
 
         self.position = position
@@ -532,7 +532,7 @@ class DroneAgent(Agent):
 
             temp_target_queue.pop(0)
 
-            # TODO optimize target queue
+            temp_target_queue = self.optimize_target_queue(temp_target_queue)
 
             util = self.utility_value(temp_target_queue)
             utilities.append((combo, util))
@@ -545,19 +545,48 @@ class DroneAgent(Agent):
 
         last_center = None
         temp_taget_queue = []
-        for target in target_queue:
-            if target["type"] == "CENTER" and last_center != target["id"]:
-                sub_target_queues.insert(0, self.centers[last_center])
+
+        for idx in range(len(target_queue) + 1):
+            if idx == len(target_queue) or (
+                    target_queue[idx]["type"] == "CENTER" and last_center != target_queue[idx]["id"]):
+                if last_center is not None:
+                    temp_taget_queue.insert(0, last_center)
                 sub_target_queues.append(temp_taget_queue)
+                if idx >= len(target_queue):
+                    break
                 temp_taget_queue = []
-                last_center = target["id"]
-            elif target["type"] == "CENTER" and last_center == target["id"]:
+                last_center = target_queue[idx]["id"]
+            elif target_queue[idx]["type"] == "CENTER" and last_center == target_queue[idx]["id"]:
                 continue
             else:
-                temp_taget_queue.append(target)
+                temp_taget_queue.append(target_queue[idx])
 
-        return
+        optimized_target_queue = []
 
+        for sub_target_queue in sub_target_queues:
+            if sub_target_queue[0]["type"] != "CENTER" or len(sub_target_queue) <= 2:
+                optimized_target_queue.extend(sub_target_queue)
+
+            sub_target_queue_optimized = [sub_target_queue[0]]
+            weight = 0
+            distance = 0
+            for i in range(1, len(sub_target_queue) - 1):
+                weight += sub_target_queue[i]["weight"]
+                distance += haversine_distance(sub_target_queue[i]["lat"], sub_target_queue[i]["lon"],
+                                               sub_target_queue[i + 1]["lat"], sub_target_queue[i + 1]["lon"])
+
+                if weight > self.max_capacity or distance > self.max_autonomy:
+                    sub_target_queue_optimized.append(sub_target_queue[0])
+                    weight = 0
+                    distance = 0
+                else:
+                    sub_target_queue_optimized.append(sub_target_queue[i])
+
+            optimized_target_queue.extend(sub_target_queue_optimized)
+            # The last order is not append in the previous for
+            optimized_target_queue.append(sub_target_queue[-1])
+
+        return optimized_target_queue
 
 
 class Behav2(OneShotBehaviour):

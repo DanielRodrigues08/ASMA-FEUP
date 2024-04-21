@@ -3,19 +3,20 @@ def optimize_target_queue(target_queue):
 
     last_center = None
     temp_taget_queue = []
-    for target in target_queue:
-        if target["type"] == "CENTER" and last_center != target["id"]:
+
+    for idx in range(len(target_queue) + 1):
+        if idx == len(target_queue) or (target_queue[idx]["type"] == "CENTER" and last_center != target_queue[idx]["id"]):
             if last_center is not None:
-                temp_taget_queue.insert(0, target["id"])
+                temp_taget_queue.insert(0, last_center)
             sub_target_queues.append(temp_taget_queue)
+            if idx >= len(target_queue):
+                break
             temp_taget_queue = []
-            last_center = target["id"]
-        elif target["type"] == "CENTER" and last_center == target["id"]:
+            last_center = target_queue[idx]["id"]
+        elif target_queue[idx]["type"] == "CENTER" and last_center == target_queue[idx]["id"]:
             continue
         else:
-            temp_taget_queue.append(target)
-
-    print(sub_target_queues)
+            temp_taget_queue.append(target_queue[idx])
 
 
 if __name__ == "__main__":
@@ -35,4 +36,5 @@ if __name__ == "__main__":
         {"type": "ORDER", "id": "order5_1"},
         {"type": "ORDER", "id": "order5_2"},
     ]
+
     optimize_target_queue(target_queue)
