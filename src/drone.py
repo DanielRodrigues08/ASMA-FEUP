@@ -376,7 +376,6 @@ class DroneAgent(Agent):
 
     def bid_combinations(self, orders, center_jid, counter):
 
-        possible_combos = []
         all_combos      = []
         bids            = []
 
@@ -516,13 +515,17 @@ class DroneAgent(Agent):
         for combo in all_combos:
             temp_target_queue = []
             for order in combo:
-                print("ORDER", order)
                 temp_target_queue.append(self.order_to_center[order["id"]])
                 temp_target_queue.append(order)
-            print("TEMP", temp_target_queue)    
+
             temp_target_queue.pop(0)
+
+            #TODO optimize target queue
+
             util = self.utility_value(temp_target_queue)
             utilities.append((combo, util))
+
+
 
         utilities = sorted(utilities, key=lambda x: x[1], reverse=True)
         return utilities

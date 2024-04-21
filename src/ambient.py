@@ -13,7 +13,6 @@ class Ambient(Agent):
     def __init__(self, jid, password, drones=set()):
         super().__init__(jid, password)
         self.drones = drones
-
         self.trigger = {}
         self.incidents = ["Raining", "Windy", "Sunny"]
 
