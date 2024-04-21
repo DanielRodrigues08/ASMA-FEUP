@@ -47,6 +47,7 @@ class Listen(State):
                 if not self.agent.block_timer_working:
                     self.agent.timer_working = datetime.datetime.now()
                     self.agent.block_timer_working = True
+
                 bids = []
                 counter = 0
 
@@ -549,8 +550,6 @@ class DroneAgent(Agent):
 
             self.presence.set_available()
             print(self.presence.state)
-
-            self.approve_all = True
 
             self.presence.on_subscribe = self.on_subscribe
             self.presence.on_subscribed = self.on_subscribed

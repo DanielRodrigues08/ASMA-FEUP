@@ -276,8 +276,6 @@ class Center(Agent):
             self.presence.on_subscribed = self.on_subscribed
             self.presence.on_available  = self.on_available
 
-            self.approve_all = True
-
             for drone in self.agent.drones:
                 self.presence.subscribe(str(drone))   
             print("Added contacts")
@@ -285,18 +283,17 @@ class Center(Agent):
     class CheckOrders(PeriodicBehaviour):
 
         async def run(self):
-            print(self.agent.presence.get_contacts())
             contacts   = self.agent.presence.get_contacts()
             for contact in contacts:
-                if "presence" not in contacts[contact]:
-                    continue
-                print("Has Presence - ", contacts[contact])
-        
+                if contacts[contact]['presence'].type_ == PresenceType.UNAVAILABLE:
+                    print(contact)
+                    print("AAAAAAA", contacts[contact]['JID'])
+                
 
     async def setup(self):
         
         s_machine = StateBehaviour()
-        cyclic    = self.CheckOrders(period=2)
+        cyclic    = self.CheckOrders(period=1)
 
         s_machine.add_state(name=SEND_ORDER, state=SendOrder(), initial=True)
         s_machine.add_state(name=RECEIVE_BIDS, state=ReceiveBids())
