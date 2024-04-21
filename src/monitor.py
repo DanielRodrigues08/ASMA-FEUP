@@ -68,7 +68,18 @@ def update_element(objects, key):
     print(objects[key]["status"])
 
 
+# create a slider when changed updates variable
 
+
+def create_slider(root, objects, row):
+    
+        slider = tk.Scale(root, from_=1, to=100, orient="horizontal", command=lambda value: update_values(objects))
+        slider.grid(row=row, column=0)
+    
+        def update_values(objects):
+            for obj in objects:
+                obj.value = slider.get()
+    
 def create_buttons(root, ambient, objects, row):
 
     buttons = []
@@ -121,7 +132,7 @@ def destroy_buttons(button):
     button.destroy()
 
 
-def create_window(drones_stands, center_stands, ambient=None):
+def create_window(drones_stands, center_stands, ambient=None, speeds = None):
 
 
     drones = {}
@@ -160,5 +171,6 @@ def create_window(drones_stands, center_stands, ambient=None):
     create_dropdown(root, drones_stands, drones,  0)
     create_dropdown(root, center_stands, centers, 3, True)
     create_buttons(root, ambient, events,  9)
+    create_slider(root, speeds, 12)
 
     root.mainloop()

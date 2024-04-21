@@ -19,7 +19,7 @@ class Ambient(Agent):
     class InformBehav(CyclicBehaviour):
 
         async def run(self):
-
+            
             prevent_key = None
             for key in self.agent.trigger:
                 if self.agent.trigger[key] == True:

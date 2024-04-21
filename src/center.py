@@ -211,9 +211,9 @@ class WaitOk(State):
                 for order in self.agent.orders
                 if order[0] not in self.agent.confirmed_orders
             ]
-            self.agent.pending_orders = []
+            self.agent.pending_orders   = []
             self.agent.confirmed_orders = []
-            self.agent.accepted_bids = {}
+            self.agent.accepted_bids    = {}
 
             self.set_next_state(SEND_ORDER)
             return
