@@ -9,7 +9,7 @@ import random
 
 
 class Ambient(Agent):
-
+    """ Documentation """
     def __init__(self, jid, password, drones=set()):
         super().__init__(jid, password)
         self.drones = drones
@@ -17,7 +17,7 @@ class Ambient(Agent):
         self.incidents = ["Raining", "Windy", "Sunny"]
 
     class InformBehav(CyclicBehaviour):
-
+    """ Documentation """
         async def run(self):
 
             prevent_key = None
@@ -45,7 +45,7 @@ class Ambient(Agent):
             self.counter = 0
 
     async def setup(self):
-
+        """ Documentation """
         print(f"Ambient started at {datetime.datetime.now()}")
         b = self.InformBehav()
         self.add_behaviour(b)

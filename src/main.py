@@ -36,6 +36,7 @@ print("CENTERS", centers_data)
 print("ORDERS", orders_data)
 
 def get_values():
+    """ Documentation """
 
     min_lat = 999999
     max_lat = -999999
@@ -62,6 +63,7 @@ def get_values():
     }
     
 def create_system():
+    """ Documentation """
 
     drones      = []
 
@@ -115,6 +117,7 @@ def create_system():
 ambient, centers, drones, support_bases = create_system()
 
 async def main():
+    """ Documentation """
 
     await ambient.start(auto_register=True)
 
@@ -131,10 +134,12 @@ async def main():
 
 
 def get_position(id=0):
+    """ Documentation """
     drones[id].set_flag()
     return drones[id].get_position()
 
 def update_position(position, id=0):
+    """ Documentation """
     drones[id].update_position(position)
 
 def run_spade():

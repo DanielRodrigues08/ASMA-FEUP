@@ -16,6 +16,7 @@ TIMEOUT = 1
 STANDBY = "STANDBY"
 
 class StateBehaviour(FSMBehaviour):
+    """ Documentation """
     async def on_start(self):
 
         pass
@@ -26,6 +27,7 @@ class StateBehaviour(FSMBehaviour):
 
 
 class Listen(State):
+    """ Documentation """
     async def run(self):
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
@@ -123,6 +125,7 @@ class Listen(State):
 
 
 class Standby(State):
+    """ Documentation """
     async def run(self):
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
@@ -132,6 +135,7 @@ class Standby(State):
 
 
 class WaitingAccept(State):
+    """ Documentation """
 
     async def run(self):
         if delta(self.agent.timer, TIMEOUT * 10):
@@ -165,6 +169,7 @@ class WaitingAccept(State):
 
 
 class DroneAgent(Agent):
+    """ Documentation """
 
     def __init__(
             self, jid,
@@ -213,6 +218,7 @@ class DroneAgent(Agent):
         return self.position
 
     class UpdatePosition(CyclicBehaviour):
+        """ Documentation """
         async def on_start(self):
 
             pass
@@ -221,6 +227,7 @@ class DroneAgent(Agent):
             await self.agent.stop()
 
         def check_collisions_bases(self):
+            """ Documentation """
             for base in self.agent.bases:
                 if (
                         haversine_distance(
@@ -234,6 +241,7 @@ class DroneAgent(Agent):
             return None
 
         async def delivery(self):
+            """ Documentation """
 
             self.agent.block_timer = False
             time_to_deliver = (
@@ -251,10 +259,12 @@ class DroneAgent(Agent):
             self.agent.target_queue.pop(0)
 
         def return_center(self):
+            """ Documentation """
             self.agent.target_queue.pop(0)
             self.agent.autonomy = self.agent.max_autonomy
 
         async def going_base(self):
+            """ Documentation """
             
             msg = Message(to=str(self.agent.current_base))
             self.agent.target_queue.pop(0)
@@ -267,6 +277,7 @@ class DroneAgent(Agent):
             self.agent.current_base = None
 
         def update_state(self):
+            """ Documentation """
 
             t = self.agent.target_queue[0]['type']
             match t:
@@ -282,11 +293,13 @@ class DroneAgent(Agent):
 
 
         def assign_pos(self):
+            """ Documentation """
 
             self.agent.xy["x"] = self.agent.position[0]
             self.agent.xy["y"] = self.agent.position[1]
 
         def update_position(self):
+            """ Documentation """
 
             target = (self.agent.target_queue[0]['lat'], self.agent.target_queue[0]['lon'])
             delta = (
@@ -319,6 +332,7 @@ class DroneAgent(Agent):
             return fraction, target
         
         async def deal_with_collisions(self):
+            """ Documentation """
             base_collision = self.check_collisions_bases()
             if (
                 base_collision != None
@@ -336,6 +350,7 @@ class DroneAgent(Agent):
                 await self.send(msg)
 
         async def publish_stats(self):
+            """ Documentation """
 
             if (
                     len(self.agent.target_queue) == 0
@@ -380,6 +395,7 @@ class DroneAgent(Agent):
             self.agent.global_timer = datetime.datetime.now()
 
     def bid_combinations(self, orders, center_jid, counter):
+        """ Documentation """
 
         all_combos      = []
         bids            = []
@@ -409,6 +425,7 @@ class DroneAgent(Agent):
     
 
     def valid_target_queue(self, target_queue):
+        """ Documentation """
 
         autonomy = self.autonomy
         capacity = self.max_capacity
@@ -436,6 +453,7 @@ class DroneAgent(Agent):
         return True
 
     def utility_value(self, target_queue):
+        """ Documentation """
         num_orders = 0
         total_distance = 0
 
@@ -456,6 +474,7 @@ class DroneAgent(Agent):
         return (total_distance * 1000 / self.velocity) / num_orders
 
     def utility(self, orders, center_id):
+        """ Documentation """
 
         nearest_center = min(
             self.centers.values(),
@@ -493,7 +512,7 @@ class DroneAgent(Agent):
         return self.utility_value(temp_target_queue[:-1]), add_center
 
     def generate_combos(self, pending_orders, n=1, e = 0):
-
+        """ Documentation """
         possible_combos = []
 
         for r in range(n, len(pending_orders)):
@@ -510,7 +529,7 @@ class DroneAgent(Agent):
         return filtered_combos
 
     def rearrange_orders_base(self, pending_orders):
-
+        """ Documentation """
         all_combos      = []
         utilities       = []
 
@@ -536,6 +555,7 @@ class DroneAgent(Agent):
         return utilities
     
     class Behav2(OneShotBehaviour):
+        """ Documentation """
         def on_available(self, jid, stanza):
             print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
 
@@ -560,6 +580,7 @@ class DroneAgent(Agent):
             self.presence.on_available = self.on_available
 
     async def setup(self):
+        """ Documentation """
 
         
         s_machine = StateBehaviour()

@@ -23,6 +23,7 @@ STANDBY = "STANDBY"
 
 
 class StateBehaviour(FSMBehaviour):
+    """ Documentation """
     async def on_start(self):
         # print(f"FSM starting at initial state {self.current_state}")
         pass
@@ -33,6 +34,7 @@ class StateBehaviour(FSMBehaviour):
 
 
 class Standby(State):
+    """ Documentation """
 
     async def run(self):
         if self.agent.standby.value:
@@ -44,6 +46,7 @@ class Standby(State):
 
 
 class SendOrder(State):
+    """ Documentation """
 
     async def run(self):
 
@@ -102,6 +105,7 @@ class SendOrder(State):
 
 
 class Stats(State):
+    """ Documentation """
     async def run(self):
         msg = await self.receive(timeout=TIMEOUT_MESSAGES)
         if msg is None:
@@ -125,7 +129,7 @@ class Stats(State):
 
 
 class ReceiveBids(State):
-
+    """ Documentation """
     async def run(self):
         if delta(self.agent.timer, TIMEOUT_MESSAGES * 7):
             self.set_next_state(AUCTION)
@@ -151,7 +155,7 @@ class ReceiveBids(State):
 
 
 class Auction(State):
-
+    """ Documentation """
     async def run(self):
         self.agent.timer = datetime.datetime.now()
         self.agent.counter_bids_recv = 0
@@ -202,7 +206,7 @@ class Auction(State):
 
 
 class WaitOk(State):
-
+    """ Documentation """
     async def run(self):
         if len(self.agent.confirmed_orders) == len(self.agent.pending_orders) or delta(
                 self.agent.timer, TIMEOUT_MESSAGES
@@ -239,7 +243,7 @@ class WaitOk(State):
 
 
 class Center(Agent):
-
+    """ Documentation """
     def __init__(
             self, jid, password, position, orders, drones, batch_size=3
     ):
@@ -261,7 +265,7 @@ class Center(Agent):
 
 
     class Behav1(OneShotBehaviour):
-
+        """ Documentation """
         def on_available(self, jid, stanza):
             print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
 
@@ -288,7 +292,7 @@ class Center(Agent):
             print("Added contacts")
             
     class CheckOrders(PeriodicBehaviour):
-
+        """ Documentation """
         async def run(self):
             msg = await self.receive(timeout=0)
             if msg:
@@ -315,7 +319,7 @@ class Center(Agent):
                 
 
     async def setup(self):
-        
+        """ Documentation """
         s_machine = StateBehaviour()
         cyclic    = self.CheckOrders(period=0.5)
 

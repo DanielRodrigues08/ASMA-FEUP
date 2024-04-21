@@ -10,14 +10,17 @@ from spade.message import Message
 
 
 def delta(timer, seconds):
+    """ Documentation """
     return timer < datetime.datetime.now() - datetime.timedelta(seconds=seconds)
 
 
 def msg_orders_to_list(msg):
+    """ Documentation """
     orders = msg.body.split(" ")
     return orders
 
 def csv_centers_to_system(csv):
+    """ Documentation """
     df = pd.read_csv(csv, sep=';')
     df['latitude'] = df['latitude'].str.replace(',', '.')
     df['longitude'] = df['longitude'].str.replace(',', '.')  
@@ -26,6 +29,7 @@ def csv_centers_to_system(csv):
     return df.values[0].tolist()
 
 def centers_to_dict(centers):
+    """ Documentation """
     centers_data = []
     for center in centers:
         center_data = {'id': center[0], 'lat': center[1], 'lon': center[2]}
@@ -33,6 +37,7 @@ def centers_to_dict(centers):
     return centers_data
 
 def orders_to_dict(orders):
+    """ Documentation """
     orders_data = []
     for order in orders:
         order_data = {'center': order[0][0], 'orders': order[1:]}
@@ -40,6 +45,7 @@ def orders_to_dict(orders):
     return orders_data
 
 def csv_orders_to_system(csv):
+    """ Documentation """
     df = pd.read_csv(csv, sep=';')
     orders = []
     df['latitude'] = df['latitude'].str.replace(',', '.')
@@ -52,6 +58,7 @@ def csv_orders_to_system(csv):
     return orders   
 
 def csv_drones_to_system(csv):
+    """ Documentation """
     df = pd.read_csv(csv, sep=';')
     df['capacity'] = df['capacity'].str.replace('kg', '')
     df['autonomy'] = df['autonomy'].str.replace('Km', '')
@@ -66,6 +73,7 @@ def csv_drones_to_system(csv):
     return drones
 
 def position_drones(drones, center):
+    """ Documentation """
 
 
     drones_data = []
@@ -85,6 +93,7 @@ def position_drones(drones, center):
             
 
 def haversine_distance(lat1, lon1, lat2, lon2):
+    """ Documentation """
     dLat = (lat2 - lat1) * math.pi / 180.0
     dLon = (lon2 - lon1) * math.pi / 180.0
     
@@ -99,6 +108,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return rad * c  
 
 def find_orders_with_ids(orders, order_ids):
+    """ Documentation """
     result = []
     order_ids_set = set(order_ids)  # Convert list to set for expected IDs
     required_length = len(order_ids_set)  # The number of unique order IDs required in the sub-list
@@ -113,12 +123,14 @@ def find_orders_with_ids(orders, order_ids):
    
 
 def find_missing_orders(sub_list, pending_orders):
+    """ Documentation """
     existing_order_ids = {order['id'] for order in sub_list[0]}  # sub_list[0] contains the orders
 
     missing_orders = [order for order in pending_orders if order['id'] not in existing_order_ids]
     return missing_orders
 
 def get_all_stats(stats, times_drones, total_time_working):
+    """ Documentation """
     total_time = 0
     min_time = 0
     max_time = 0

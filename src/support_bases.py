@@ -11,6 +11,7 @@ REARRANGEMENT = "REARRANGEMENT"
 
 
 class StateBehaviour(FSMBehaviour):
+    """ Documentation """
     async def on_start(self):
         print(f"FSM starting at initial state {self.current_state}")
 
@@ -20,6 +21,7 @@ class StateBehaviour(FSMBehaviour):
 
 
 class Waiting_1_msg(State):
+    """ Documentation """
     async def run(self):
 
         self.agent.drones_close = []
@@ -44,6 +46,7 @@ class Waiting_1_msg(State):
 
 
 class Waiting_2_msg(State):
+    """ Documentation """
     async def run(self):
         msg = await self.receive(timeout=1)
 
@@ -68,6 +71,7 @@ class Waiting_2_msg(State):
 
 
 class Waiting_Meeting(State):
+    """ Documentation """
     async def run(self):
         for drone in self.agent.drones_close:
             msg = Message(to=str(drone))
@@ -95,6 +99,7 @@ class Waiting_Meeting(State):
 
 
 class Rearrangement(State):
+    """ Documentation """
 
     async def assing_orders(self, payload_1, payload_2, msg1, msg2):
 
@@ -156,6 +161,7 @@ class Rearrangement(State):
 
 
 class SupportBase(Agent):
+    """ Documentation """
 
     def __init__(self, jid, password, position):
         super().__init__(jid, password)
