@@ -117,7 +117,6 @@ class Listen(State):
 
                 if payload["condition"] == "Raining":
                     if random.random() > 0.5:
-                        print("ADASDASDASSDSDADS")
                         await self.agent.stop()
                     
             case "FINISHED":

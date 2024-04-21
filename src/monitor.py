@@ -6,7 +6,6 @@ def update_event():
     print("Event updated")
 
 def update_drone(obj):
-    print(obj)
     obj.value = True
     print("Drone updated")
 
@@ -68,7 +67,6 @@ def update_element(objects, key):
     print(objects[key]["status"])
 
 
-# create a slider when changed updates variable
 
 
 def create_slider(root, objects, row):
@@ -104,6 +102,7 @@ def create_dropdown(root, stands, objects, row, input = False):
 
         if input:
             create_text_input(objects[var.get()], root, row + 1)
+        print(objects[var.get()])
         button = tk.Button(root, text=var.get(), command=lambda: methods[objects[var.get()]["type"]](stands[objects[var.get()]["id"]]))
         button.grid(row=row +2, column=0)
         
@@ -143,18 +142,13 @@ def create_window(drones_stands, center_stands, ambient=None, speeds = None):
     centers = {}
 
     for i in range(len(center_stands)):
-        centers[f'Center {i}'] = {"status": center_stands[i], "type": "center"}
+        centers[f'Center {i}'] = {"status": center_stands[i],"id": i, "type": "center"}
 
     
     events = {
         'Raining': {
             "status": "off",
             "type": "Raining"
-        },
-
-        'Sunny': {
-            "status": "on",
-            "type": "Sunny"
         },
 
         'Windy': {

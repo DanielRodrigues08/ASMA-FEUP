@@ -14,12 +14,12 @@ class Ambient(Agent):
         super().__init__(jid, password)
         self.drones = drones
         self.trigger = {}
-        self.incidents = ["Raining", "Windy", "Sunny"]
+        self.incidents = ["Raining", "Windy"]
 
     class InformBehav(CyclicBehaviour):
 
         async def run(self):
-            
+
             prevent_key = None
             for key in self.agent.trigger:
                 if self.agent.trigger[key] == True:
