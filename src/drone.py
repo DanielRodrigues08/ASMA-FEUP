@@ -620,26 +620,26 @@ class DroneAgent(Agent):
         return optimized_target_queue
 
 
-class Behav2(OneShotBehaviour):
-    def on_available(self, jid, stanza):
-        print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
+    class Behav2(OneShotBehaviour):
+        def on_available(self, jid, stanza):
+            print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
 
-    def on_subscribed(self, jid):
-        print("[{}] Agent {} has accepted the subscription.".format(self.agent.name, jid.split("@")[0]))
-        print("[{}] Contacts List: {}".format(self.agent.name, self.agent.presence.get_contacts()))
+        def on_subscribed(self, jid):
+            print("[{}] Agent {} has accepted the subscription.".format(self.agent.name, jid.split("@")[0]))
+            print("[{}] Contacts List: {}".format(self.agent.name, self.agent.presence.get_contacts()))
 
-    def on_subscribe(self, jid):
-        print("[{}] Agent {} asked for subscription. Let's aprove it.".format(self.agent.name, jid.split("@")[0]))
-        self.presence.approve(jid)
-        self.presence.subscribe(jid)
+        def on_subscribe(self, jid):
+            print("[{}] Agent {} asked for subscription. Let's aprove it.".format(self.agent.name, jid.split("@")[0]))
+            self.presence.approve(jid)
+            self.presence.subscribe(jid)
 
-    async def run(self):
-        self.presence.set_available()
-        print(self.presence.state)
+        async def run(self):
+            self.presence.set_available()
+            print(self.presence.state)
 
-        self.presence.on_subscribe = self.on_subscribe
-        self.presence.on_subscribed = self.on_subscribed
-        self.presence.on_available = self.on_available
+            self.presence.on_subscribe = self.on_subscribe
+            self.presence.on_subscribed = self.on_subscribed
+            self.presence.on_available = self.on_available
 
     async def setup(self):
         """ Documentation """
