@@ -248,10 +248,6 @@ class WaitOk(State):
             payload = json.loads(msg.body)
             if payload["type"] == "OK":
                 self.agent.confirmed_orders += self.agent.accepted_bids[str(msg.sender)]
-                if str(msg.sender) in self.agent.drones_orders:
-                    self.agent.drones_orders[str(msg.sender)] = self.agent.drones_orders[str(msg.sender)] + self.agent.accepted_bids[str(msg.sender)]
-                else: 
-                    self.agent.drones_orders[str(msg.sender)] = self.agent.accepted_bids[str(msg.sender)]
                 
                 print("BIDS", self.agent.accepted_bids[str(msg.sender)])
                 print("ORDERS_NEW", self.agent.orders)

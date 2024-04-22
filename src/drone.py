@@ -364,7 +364,8 @@ class DroneAgent(Agent):
 
         async def publish_stats(self):
             """ Documentation """
-
+            print(self.agent.jid, "ORDERS", self.agent.target_queue)
+            print("CENTERS OVER", self.agent.centers_over, "NUM CENTERS", self.agent.num_centers)
             if (
                     len(self.agent.target_queue) == 0
                     and self.agent.centers_over == self.agent.num_centers
