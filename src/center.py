@@ -258,7 +258,7 @@ class Center(Agent):
         self.drones = drones
         self.dispatch_timer = datetime.datetime.now()
         self.timer = datetime.datetime.now()
-        self.batch_size = 2
+        self.batch_size = batch_size
         self.pending_orders = []
         self.final_stats_drones = []
         self.final_stats_times = []
