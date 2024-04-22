@@ -52,7 +52,11 @@ class Listen(State):
                 bids = []
                 counter = 0
 
+
                 for order in payload["orders"]:
+                    
+                    if order["id"] == "order2_2":
+                        print("ORDER", order)
 
                     self.agent.order_to_center[order["id"]] = str(msg.sender)
                     value, add_center = self.agent.utility([order], str(msg.sender))
@@ -70,6 +74,9 @@ class Listen(State):
                     counter += 1
 
                 bids.extend(self.agent.bid_combinations(payload["orders"], msg.sender, counter))
+                if (str(self.agent.jid) == "drone2@localhost"):
+                    print("BIDS", bids)
+
                 ans = Message(to=str(msg.sender))
                 ans.body = json.dumps({"type": "BIDS", "bids": bids})
                 ans.set_metadata("performative", "propose")
@@ -156,14 +163,20 @@ class WaitingAccept(State):
         payload = json.loads(msg.body)
 
         if payload["type"] == "ACCEPT":
+
             bid = self.agent.pending["bids"][payload["id_bid"]]
+            
+            if (str(self.agent.jid) == "drone2@localhost"):
+                print("AQUI", bid, payload["id_bid"])
+
+            
+            print("PASSOU")
             if bid["add_center"]:
                 self.agent.target_queue.append(self.agent.centers[str(msg.sender)])
             self.agent.target_queue.extend(bid["orders"])
 
             ans = Message(to=str(msg.sender), body=json.dumps({"type": "OK"}))
             ans.set_metadata("performative", "inform")
-            #print("Drone accepted orders", self.agent.jid, bid["orders"])
             await self.send(ans)
 
         if payload["type"] == "REJECT":
@@ -260,6 +273,8 @@ class DroneAgent(Agent):
             self.agent.stats.append(
                 {"order": self.agent.target_queue[0], "time": time_to_deliver}
             )
+
+            print("Drone", self.agent.jid, "delivered order", self.agent.target_queue[0]['id'])
 
 
             self.agent.target_queue.pop(0)
@@ -415,7 +430,7 @@ class DroneAgent(Agent):
 
         all_combos.extend(filtered_combos)
 
-        index = counter + 1
+        index = counter
         for combo in all_combos:
             util, add_center = self.utility(combo, center_jid)
             bids.append(
@@ -427,8 +442,8 @@ class DroneAgent(Agent):
 
                 })
 
-            counter += 1
-            self.pending["bids"][counter] = {"orders": combo, "add_center": add_center}
+            self.pending["bids"][index] = {"orders": combo, "add_center": add_center}
+            index += 1
 
         return bids
 

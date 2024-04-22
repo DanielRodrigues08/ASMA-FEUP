@@ -168,7 +168,7 @@ if __name__ == "__main__":
         drone.xy = new_xy
         drone.standby = multiprocessing.Value('b', False)
         proxy.append(drone.xy)
-        drone.sim_speed = multiprocessing.Value('i', 1)
+        drone.sim_speed = multiprocessing.Value('i', 500)
 
 
     for center in centers:

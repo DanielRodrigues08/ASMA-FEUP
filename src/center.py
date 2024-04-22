@@ -59,9 +59,10 @@ class SendOrder(State):
         self.agent.dispatch_timer = datetime.datetime.now()
         self.agent.bids = []
 
-        counter_help = 0
-        
+        if (str(self.agent.jid) == "center2@localhost"):
+            print(len(self.agent.initial_orders), len(self.agent.final_orders))
         if len(self.agent.initial_orders) == len(self.agent.final_orders):
+            print("All orders delivered at center", self.agent.jid[0])
             for drone in self.agent.drones:
                 msg = Message(to=str(drone))
                 msg.body = json.dumps({"type": "FINISHED"})
@@ -172,6 +173,8 @@ class Auction(State):
         accepted_drones = set()
 
 
+        print("AUCTION")
+
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):
                 break
@@ -184,6 +187,7 @@ class Auction(State):
                 accepted_orders.update(set(bid["id_orders"]))
                 accepted_drones.add(bid["sender"])
 
+        print("ACCEPTED BIDS", accepted_bids)
         for accepted_bid in accepted_bids:
             msg = Message(to=accepted_bid["sender"])
 
@@ -258,7 +262,7 @@ class Center(Agent):
         self.drones = drones
         self.dispatch_timer = datetime.datetime.now()
         self.timer = datetime.datetime.now()
-        self.batch_size = batch_size
+        self.batch_size = 3
         self.pending_orders = []
         self.final_stats_drones = []
         self.final_stats_times = []
@@ -308,23 +312,7 @@ class Center(Agent):
                             self.agent.drones_orders[str(msg.sender)].remove(order)
                             break
                     self.agent.final_orders.add(payload["order"])
-            
-            contacts   = self.agent.presence.get_contacts()
-            lost_contacts = []
-            for contact in contacts:
-                if 'presence' in contacts[contact] and contacts[contact]['presence'].type_ == PresenceType.UNAVAILABLE:
-                    lost_contacts.append(contact)
-                    if str(contact) in self.agent.drones_orders:
-                        if (len(self.agent.drones_orders[str(contact)]) > 0):
-                            self.agent.orders = self.agent.orders + self.agent.drones_orders[str(contact)]
-                            self.agent.drones_orders[str(contact)] = []
-
-            for contact in lost_contacts:
-                if contact not in self.agent.drones_dropped:
-                    self.agent.presence.unsubscribe(str(contact))
-                    self.agent.drones_dropped.add(contact)
-                    self.agent.drones.remove(contact)
-                #self.agent.drones.remove(contact)
+                    print("Order delivered", payload["order"], "by drone", str(msg.sender).split("@")[0])
                 
                 
                             
