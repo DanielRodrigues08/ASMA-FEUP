@@ -124,7 +124,9 @@ class Listen(State):
                         await self.agent.stop()
 
             case "FINISHED":
+                print("CENTER OVER FROM DRONE", self.agent.centers_over)
                 self.agent.centers_over += 1
+                print("CENTER OVER FROM DRONE", self.agent.centers_over)
                 self.set_next_state(LISTEN)
                 return
 
@@ -363,8 +365,6 @@ class DroneAgent(Agent):
 
         async def publish_stats(self):
             """ Documentation """
-            print(self.agent.jid, "ORDERS", self.agent.target_queue)
-            print("CENTERS OVER", self.agent.centers_over, "NUM CENTERS", self.agent.num_centers)
             if (
                     len(self.agent.target_queue) == 0
                     and self.agent.centers_over == self.agent.num_centers
@@ -383,7 +383,6 @@ class DroneAgent(Agent):
 
         async def run(self):
 
-            print("Running drone", self.agent.jid, "STATE", self.agent.state, "TARGET QUEUE", self.agent.target_queue)
             await self.publish_stats()
 
             if self.agent.block_movement or len(self.agent.target_queue) == 0:

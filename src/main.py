@@ -12,8 +12,8 @@ from carto import create_gui
 from support_bases import SupportBase
 from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict, orders_to_dict
 
-CENTERS_DIR = "../centers/"
-DRONES_DIR = "../drones/"
+CENTERS_DIR = "../data/centers/"
+DRONES_DIR = "../data/drones/"
 
 centers_data = []
 orders_data = []

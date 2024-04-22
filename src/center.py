@@ -65,7 +65,7 @@ class SendOrder(State):
             for drone in self.agent.drones_orders:
                 if len(self.agent.drones_orders[drone]) == 0:
                     counter_help +=1
-            if (counter_help == len(self.agent.drones)):        
+            if (counter_help == self.agent.initial_drones_num):        
                 print(str(self.agent) + " NO MORE ORDERS")
                 for drone in self.agent.drones:
                     msg = Message(to=str(drone))
@@ -76,6 +76,8 @@ class SendOrder(State):
                 return
             else:
                 print("ORDERS", self.agent.drones_orders)
+        else:
+            print("WTF", self.agent.orders)        
 
         num_orders = min(self.agent.batch_size, len(self.agent.orders))
 
@@ -127,7 +129,7 @@ class Stats(State):
             case "STATS":
                 self.agent.final_stats_drones.append(payload["stats"])
                 self.agent.final_stats_times.append({"drone": str(msg.sender).split("@")[0], "time": payload["time"]})
-                if len(self.agent.final_stats_drones) != (len(self.agent.drones)-len(self.agent.drones_dropped)):
+                if len(self.agent.final_stats_drones) != (len(self.agent.drones)):
                     self.set_next_state(STATS)
                     return
                 else:
@@ -236,12 +238,9 @@ class WaitOk(State):
 
             self.set_next_state(SEND_ORDER)
             return
-
-        print("PASSSOU SIGA")
         
         msg = await self.receive(timeout=0)
         if msg:
-            print("FODEU")
             if str(msg.sender) not in set(self.agent.accepted_bids.keys()):
                 self.set_next_state(WAIT_OK)
 
@@ -281,6 +280,7 @@ class Center(Agent):
         self.counter_bids_recv = 0
         self.system_timer = None
         self.block_timer = False
+        self.initial_drones_num = len(drones)
         self.drones_orders = {}
         self.drones_dropped = set()
 
@@ -322,6 +322,7 @@ class Center(Agent):
                     for order in self.agent.drones_orders[str(msg.sender)]:
                         if order[0] == payload["order"]:
                             self.agent.drones_orders[str(msg.sender)].remove(order)
+                            print("A REMOVER", order, " ", self.agent.orders)
                             print("SIGA", self.agent.drones_orders)
                             break
             
@@ -329,7 +330,6 @@ class Center(Agent):
             lost_contacts = []
             for contact in contacts:
                 if 'presence' in contacts[contact] and contacts[contact]['presence'].type_ == PresenceType.UNAVAILABLE:
-                    print("CONTACTO", contact)
                     lost_contacts.append(contact)
                     if str(contact) in self.agent.drones_orders:
                         if (len(self.agent.drones_orders[str(contact)]) > 0):
@@ -339,9 +339,11 @@ class Center(Agent):
             #print("DRONES", self.agent.drones)
 
             for contact in lost_contacts:
-                self.agent.presence.unsubscribe(str(contact))
-                self.agent.drones_dropped.add(contact)
-                #print("DRONES", self.agent.drones)
+                if contact not in self.agent.drones_dropped:
+                    self.agent.presence.unsubscribe(str(contact))
+                    self.agent.drones_dropped.add(contact)
+                    self.agent.drones.remove(contact)
+                    print("DRONES DROPPED", self.agent.drones_dropped)
                 #self.agent.drones.remove(contact)
                 
                 
