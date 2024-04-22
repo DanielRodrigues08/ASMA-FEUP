@@ -121,14 +121,23 @@ async def main():
 
     await ambient.start(auto_register=True)
 
+    #await asyncio.sleep(10)
+    
     for drone in drones:
         await drone.start(auto_register=True)
 
+    
+    #await asyncio.sleep(10)
+    
     for center in centers:
         await center.start(auto_register=True)
 
+   # await asyncio.sleep(10)
+    
     for base in support_bases:
         await base.start(auto_register=True)
+        
+    #await asyncio.sleep(10)    
    
     
 

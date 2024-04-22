@@ -17,7 +17,7 @@ class Ambient(Agent):
         self.incidents = ["Raining", "Windy"]
 
     class InformBehav(CyclicBehaviour):
-    """ Documentation """
+        """ Documentation """
         async def run(self):
 
             prevent_key = None

@@ -11,7 +11,6 @@ from aioxmpp import PresenceType
 import asyncio
 
 TIMEOUT_MESSAGES = 2
-from aioxmpp import PresenceType
 
 
 SEND_ORDER = "SEND_ORDER"
@@ -60,19 +59,29 @@ class SendOrder(State):
         self.agent.dispatch_timer = datetime.datetime.now()
         self.agent.bids = []
 
+        counter_help = 0
+        
         if len(self.agent.orders) == 0:
-            print(str(self.agent) + " NO MORE ORDERS")
-            for drone in self.agent.drones:
-                msg = Message(to=str(drone))
-                msg.body = json.dumps({"type": "FINISHED"})
-                msg.set_metadata("performative", "inform")
-                await self.send(msg)
-            self.set_next_state(STATS)
-            return
+            for drone in self.agent.drones_orders:
+                if len(self.agent.drones_orders[drone]) == 0:
+                    counter_help +=1
+            if (counter_help == len(self.agent.drones)):        
+                print(str(self.agent) + " NO MORE ORDERS")
+                for drone in self.agent.drones:
+                    msg = Message(to=str(drone))
+                    msg.body = json.dumps({"type": "FINISHED"})
+                    msg.set_metadata("performative", "inform")
+                    await self.send(msg)
+                self.set_next_state(STATS)
+                return
+            else:
+                print("ORDERS", self.agent.drones_orders)
 
         num_orders = min(self.agent.batch_size, len(self.agent.orders))
 
         orders = self.agent.orders[:num_orders]
+        print("ORDERS CENTER HAS NOW", orders)
+
 
         orders_data = {
             "type": "NEW_ORDERS",
@@ -118,7 +127,7 @@ class Stats(State):
             case "STATS":
                 self.agent.final_stats_drones.append(payload["stats"])
                 self.agent.final_stats_times.append({"drone": str(msg.sender).split("@")[0], "time": payload["time"]})
-                if len(self.agent.final_stats_drones) != len(self.agent.drones):
+                if len(self.agent.final_stats_drones) != (len(self.agent.drones)-len(self.agent.drones_dropped)):
                     self.set_next_state(STATS)
                     return
                 else:
@@ -143,7 +152,9 @@ class ReceiveBids(State):
                 self.agent.block_timer = True
             body = json.loads(msg.body)
             if body["type"] == "BIDS":
+                print("BID RECEIVED", body)
                 self.agent.bids += body["bids"]
+                print("AGENT BIDS", self.agent.bids)
                 self.agent.counter_bids_recv += 1
 
         if self.agent.counter_bids_recv == len(self.agent.drones):
@@ -159,6 +170,7 @@ class Auction(State):
     async def run(self):
         self.agent.timer = datetime.datetime.now()
         self.agent.counter_bids_recv = 0
+        print("BIDS AUCTION", self.agent.bids)
         if not self.agent.bids:
             self.set_next_state(SEND_ORDER)
             return
@@ -170,6 +182,7 @@ class Auction(State):
         accepted_bids = []
         accepted_orders = set()
         accepted_drones = set()
+
 
         for bid in self.agent.bids:
             if len(accepted_orders) == len(self.agent.pending_orders):
@@ -184,6 +197,7 @@ class Auction(State):
                 accepted_drones.add(bid["sender"])
 
         for accepted_bid in accepted_bids:
+            print("ACCEPTED BID", accepted_bid)
             msg = Message(to=accepted_bid["sender"])
 
             msg.body = json.dumps(
@@ -223,19 +237,29 @@ class WaitOk(State):
             self.set_next_state(SEND_ORDER)
             return
 
+        print("PASSSOU SIGA")
+        
         msg = await self.receive(timeout=0)
         if msg:
+            print("FODEU")
             if str(msg.sender) not in set(self.agent.accepted_bids.keys()):
                 self.set_next_state(WAIT_OK)
 
             payload = json.loads(msg.body)
             if payload["type"] == "OK":
                 self.agent.confirmed_orders += self.agent.accepted_bids[str(msg.sender)]
-                print("BIDS", self.agent.accepted_bids[str(msg.sender)])
                 if str(msg.sender) in self.agent.drones_orders:
                     self.agent.drones_orders[str(msg.sender)] = self.agent.drones_orders[str(msg.sender)] + self.agent.accepted_bids[str(msg.sender)]
                 else: 
                     self.agent.drones_orders[str(msg.sender)] = self.agent.accepted_bids[str(msg.sender)]
+                
+                print("BIDS", self.agent.accepted_bids[str(msg.sender)])
+                print("ORDERS_NEW", self.agent.orders)
+                for order in self.agent.orders:
+                    if order[0] in self.agent.accepted_bids[str(msg.sender)]:
+                        if str(msg.sender) not in self.agent.drones_orders:
+                            self.agent.drones_orders[str(msg.sender)] = []
+                        self.agent.drones_orders[str(msg.sender)].append(order)   
 
         self.set_next_state(WAIT_OK)
 
@@ -262,6 +286,7 @@ class Center(Agent):
         self.system_timer = None
         self.block_timer = False
         self.drones_orders = {}
+        self.drones_dropped = set()
 
 
     class Behav1(OneShotBehaviour):
@@ -282,7 +307,6 @@ class Center(Agent):
 
             self.presence.set_available()
 
-            
             self.presence.on_subscribe  = self.on_subscribe
             self.presence.on_subscribed = self.on_subscribed
             self.presence.on_available  = self.on_available
@@ -300,21 +324,32 @@ class Center(Agent):
                 if payload["type"] == "DELIVERED":
                     print("RECEBIDA")
                     for order in self.agent.drones_orders[str(msg.sender)]:
-                        if order == payload["order"]:
+                        if order[0] == payload["order"]:
                             self.agent.drones_orders[str(msg.sender)].remove(order)
                             print("SIGA", self.agent.drones_orders)
                             break
             
             contacts   = self.agent.presence.get_contacts()
+            lost_contacts = []
             for contact in contacts:
-                if contacts[contact]['presence'].type_ == PresenceType.UNAVAILABLE:
-                    # passar as orders para array orders
+                if 'presence' in contacts[contact] and contacts[contact]['presence'].type_ == PresenceType.UNAVAILABLE:
                     print("CONTACTO", contact)
-                    print("ORDERS DELE", self.agent.drones_orders[str(contact)])
-                    if (len(self.agent.drones_orders[str(contact)]) > 0):
-                        self.agent.orders = self.agent.orders + self.agent.drones_orders[str(contact)]
-                        self.agent.drones_orders[str(contact)] = []
-                        print("NEW ORDERS", self.agent.orders)
+                    lost_contacts.append(contact)
+                    if str(contact) in self.agent.drones_orders:
+                        if (len(self.agent.drones_orders[str(contact)]) > 0):
+                            self.agent.orders = self.agent.orders + self.agent.drones_orders[str(contact)]
+                            self.agent.drones_orders[str(contact)] = []
+                            print("NEW ORDERS", self.agent.orders)
+            #print("DRONES", self.agent.drones)
+
+            for contact in lost_contacts:
+                self.agent.presence.unsubscribe(str(contact))
+                self.agent.drones_dropped.add(contact)
+                #print("DRONES", self.agent.drones)
+                #self.agent.drones.remove(contact)
+                
+                
+                            
                     
                 
 
