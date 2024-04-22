@@ -71,7 +71,7 @@ def update_element(objects, key):
 
 def create_slider(root, objects, row):
     
-        slider = tk.Scale(root, from_=1, to=100, orient="horizontal", command=lambda value: update_values(objects))
+        slider = tk.Scale(root, from_=1, to=1000, orient="horizontal", command=lambda value: update_values(objects))
         slider.grid(row=row, column=0)
     
         def update_values(objects):

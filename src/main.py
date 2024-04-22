@@ -12,8 +12,8 @@ from carto import create_gui
 from support_bases import SupportBase
 from utils import csv_centers_to_system, csv_orders_to_system, csv_drones_to_system, position_drones, centers_to_dict, orders_to_dict
 
-CENTERS_DIR = "../data/centers/"
-DRONES_DIR = "../data/drones/"
+CENTERS_DIR = "../centers/"
+DRONES_DIR = "../drones/"
 
 centers_data = []
 orders_data = []
@@ -32,8 +32,6 @@ centers_data = centers_to_dict(centers_data)
 orders_data = orders_to_dict(orders_data)
 drones_data = position_drones(drones_data, centers_data)
 
-print("CENTERS", centers_data)
-print("ORDERS", orders_data)
 
 def get_values():
     """ Documentation """

@@ -28,8 +28,8 @@ class Ambient(Agent):
                     break
 
             if prevent_key:
-
                 print(f"Ambient Warning Incoming at {datetime.datetime.now()} of type {prevent_key}")
+
 
                 for drone in self.agent.drones:
                     msg = Message(to=str(drone))

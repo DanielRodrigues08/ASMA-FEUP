@@ -44,7 +44,6 @@ class Listen(State):
         match payload["type"]:
 
             case "NEW_ORDERS":
-                print("DRONE", self.agent.jid, "RECEIVED NEW ORDERS", payload["orders"])
                 self.agent.pending = {"sender": str(msg.sender), "bids": {}}
                 if not self.agent.block_timer_working:
                     self.agent.timer_working = datetime.datetime.now()
@@ -57,7 +56,6 @@ class Listen(State):
 
                     self.agent.order_to_center[order["id"]] = str(msg.sender)
                     value, add_center = self.agent.utility([order], str(msg.sender))
-                    print("BID VALUE", value)
                     if value == -1:
                         continue
                     bids.append(
@@ -124,9 +122,7 @@ class Listen(State):
                         await self.agent.stop()
 
             case "FINISHED":
-                print("CENTER OVER FROM DRONE", self.agent.centers_over)
                 self.agent.centers_over += 1
-                print("CENTER OVER FROM DRONE", self.agent.centers_over)
                 self.set_next_state(LISTEN)
                 return
 
@@ -160,16 +156,14 @@ class WaitingAccept(State):
         payload = json.loads(msg.body)
 
         if payload["type"] == "ACCEPT":
-            print("ACCEPT DRONE")
             bid = self.agent.pending["bids"][payload["id_bid"]]
             if bid["add_center"]:
                 self.agent.target_queue.append(self.agent.centers[str(msg.sender)])
             self.agent.target_queue.extend(bid["orders"])
 
             ans = Message(to=str(msg.sender), body=json.dumps({"type": "OK"}))
-            print("DRONE ok")
             ans.set_metadata("performative", "inform")
-            print("Drone accepted orders", self.agent.jid, bid["orders"])
+            #print("Drone accepted orders", self.agent.jid, bid["orders"])
             await self.send(ans)
 
         if payload["type"] == "REJECT":
@@ -266,6 +260,7 @@ class DroneAgent(Agent):
             self.agent.stats.append(
                 {"order": self.agent.target_queue[0], "time": time_to_deliver}
             )
+
 
             self.agent.target_queue.pop(0)
 
@@ -370,7 +365,6 @@ class DroneAgent(Agent):
                     and self.agent.centers_over == self.agent.num_centers
             ):
 
-                print("Drone finished all deliveries")
                 timer_working = (datetime.datetime.now() - self.agent.timer_working).total_seconds()
                 for center in self.agent.centers:
                     msg = Message(
@@ -447,13 +441,11 @@ class DroneAgent(Agent):
         actual_lat = self.position[0]
         actual_lon = self.position[1]
 
-        print("ANTES DO CICLO", autonomy)
         
         for target in target_queue:
             autonomy -= haversine_distance(
                 actual_lat, actual_lon, target["lat"], target["lon"]
             )
-            print("AUT", autonomy, "DRONE", str(self.jid))
 
             capacity -= target["weight"] if target["type"] == "ORDER" else 0
 
@@ -524,7 +516,6 @@ class DroneAgent(Agent):
             temp_target_queue.append(nearest_center)
 
             if not self.valid_target_queue(temp_target_queue):
-                print("TARGET QUEUE", temp_target_queue)
                 return -1, False
 
         return self.utility_value(temp_target_queue[:-1]), add_center

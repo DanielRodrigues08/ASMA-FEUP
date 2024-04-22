@@ -61,28 +61,17 @@ class SendOrder(State):
 
         counter_help = 0
         
-        if len(self.agent.orders) == 0:
-            for drone in self.agent.drones_orders:
-                if len(self.agent.drones_orders[drone]) == 0:
-                    counter_help +=1
-            if (counter_help == self.agent.initial_drones_num):        
-                print(str(self.agent) + " NO MORE ORDERS")
-                for drone in self.agent.drones:
-                    msg = Message(to=str(drone))
-                    msg.body = json.dumps({"type": "FINISHED"})
-                    msg.set_metadata("performative", "inform")
-                    await self.send(msg)
-                self.set_next_state(STATS)
-                return
-            else:
-                print("ORDERS", self.agent.drones_orders)
-        else:
-            print("WTF", self.agent.orders)        
-
+        if len(self.agent.initial_orders) == len(self.agent.final_orders):
+            for drone in self.agent.drones:
+                msg = Message(to=str(drone))
+                msg.body = json.dumps({"type": "FINISHED"})
+                msg.set_metadata("performative", "inform")
+                await self.send(msg)
+            self.set_next_state(STATS)
+            return
         num_orders = min(self.agent.batch_size, len(self.agent.orders))
 
         orders = self.agent.orders[:num_orders]
-        print("ORDERS CENTER HAS NOW", orders)
 
 
         orders_data = {
@@ -154,9 +143,7 @@ class ReceiveBids(State):
                 self.agent.block_timer = True
             body = json.loads(msg.body)
             if body["type"] == "BIDS":
-                print("BID RECEIVED", body)
                 self.agent.bids += body["bids"]
-                print("AGENT BIDS", self.agent.bids)
                 self.agent.counter_bids_recv += 1
 
         if self.agent.counter_bids_recv == len(self.agent.drones):
@@ -172,7 +159,6 @@ class Auction(State):
     async def run(self):
         self.agent.timer = datetime.datetime.now()
         self.agent.counter_bids_recv = 0
-        print("BIDS AUCTION", self.agent.bids)
         if not self.agent.bids:
             self.set_next_state(SEND_ORDER)
             return
@@ -199,7 +185,6 @@ class Auction(State):
                 accepted_drones.add(bid["sender"])
 
         for accepted_bid in accepted_bids:
-            print("ACCEPTED BID", accepted_bid)
             msg = Message(to=accepted_bid["sender"])
 
             msg.body = json.dumps(
@@ -248,8 +233,6 @@ class WaitOk(State):
             if payload["type"] == "OK":
                 self.agent.confirmed_orders += self.agent.accepted_bids[str(msg.sender)]
                 
-                print("BIDS", self.agent.accepted_bids[str(msg.sender)])
-                print("ORDERS_NEW", self.agent.orders)
                 for order in self.agent.orders:
                     if order[0] in self.agent.accepted_bids[str(msg.sender)]:
                         if str(msg.sender) not in self.agent.drones_orders:
@@ -267,13 +250,15 @@ class Center(Agent):
             self, jid, password, position, orders, drones, batch_size=3
     ):
         super().__init__(jid, password)
+        self.final_orders = set()
+        self.initial_orders = set([orders[0] for orders in orders])
         self.position = position
         self.orders = orders
         self.standby = False
         self.drones = drones
         self.dispatch_timer = datetime.datetime.now()
         self.timer = datetime.datetime.now()
-        self.batch_size = batch_size
+        self.batch_size = 2
         self.pending_orders = []
         self.final_stats_drones = []
         self.final_stats_times = []
@@ -311,20 +296,18 @@ class Center(Agent):
                 self.presence.subscribe(str(drone))   
             print("Added contacts")
             
-    class CheckOrders(PeriodicBehaviour):
+    class CheckOrders(CyclicBehaviour):
         """ Documentation """
         async def run(self):
             msg = await self.receive(timeout=0)
             if msg:
                 payload = json.loads(msg.body)
                 if payload["type"] == "DELIVERED":
-                    print("RECEBIDA")
                     for order in self.agent.drones_orders[str(msg.sender)]:
                         if order[0] == payload["order"]:
                             self.agent.drones_orders[str(msg.sender)].remove(order)
-                            print("A REMOVER", order, " ", self.agent.orders)
-                            print("SIGA", self.agent.drones_orders)
                             break
+                    self.agent.final_orders.add(payload["order"])
             
             contacts   = self.agent.presence.get_contacts()
             lost_contacts = []
@@ -335,15 +318,12 @@ class Center(Agent):
                         if (len(self.agent.drones_orders[str(contact)]) > 0):
                             self.agent.orders = self.agent.orders + self.agent.drones_orders[str(contact)]
                             self.agent.drones_orders[str(contact)] = []
-                            print("NEW ORDERS", self.agent.orders)
-            #print("DRONES", self.agent.drones)
 
             for contact in lost_contacts:
                 if contact not in self.agent.drones_dropped:
                     self.agent.presence.unsubscribe(str(contact))
                     self.agent.drones_dropped.add(contact)
                     self.agent.drones.remove(contact)
-                    print("DRONES DROPPED", self.agent.drones_dropped)
                 #self.agent.drones.remove(contact)
                 
                 
@@ -354,7 +334,7 @@ class Center(Agent):
     async def setup(self):
         """ Documentation """
         s_machine = StateBehaviour()
-        cyclic    = self.CheckOrders(period=0.5)
+        cyclic    = self.CheckOrders()
 
         s_machine.add_state(name=SEND_ORDER, state=SendOrder(), initial=True)
         s_machine.add_state(name=RECEIVE_BIDS, state=ReceiveBids())
