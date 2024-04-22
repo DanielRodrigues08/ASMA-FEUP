@@ -78,7 +78,7 @@ def create_system():
         
     centers_dict = {center["id"] + "@localhost": {"id": center["id"] + "@localhost", "type": "CENTER", "lat": center["lat"], "lon": center["lon"]} for center in centers_data}
     for drone_data in drones_data:
-        
+
         drones.append(
             DroneAgent(
                 drone_data["id"] + "@localhost",

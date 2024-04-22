@@ -15,14 +15,13 @@ WAITING_ACCEPT = "WAITING_ACCEPT"
 TIMEOUT = 1
 STANDBY = "STANDBY"
 
+
 class StateBehaviour(FSMBehaviour):
     """ Documentation """
     async def on_start(self):
-
         pass
 
     async def on_end(self):
-
         await self.agent.stop()
 
 
@@ -32,7 +31,7 @@ class Listen(State):
         if self.agent.standby.value:
             self.set_next_state(STANDBY)
             return
-        
+
         self.agent.timer = datetime.datetime.now()
 
         msg = await self.receive(timeout=0)
@@ -91,7 +90,7 @@ class Listen(State):
                     },
                 )
 
-                self.agent.current_base  = msg.sender
+                self.agent.current_base = msg.sender
                 self.set_next_state(LISTEN)
 
                 return
@@ -111,8 +110,8 @@ class Listen(State):
 
             case "REARRANGE_DONE":
 
-                self.agent.target_queue   = payload["new_orders"]
-                self.agent.state          = None
+                self.agent.target_queue = payload["new_orders"]
+                self.agent.state = None
                 self.agent.block_movement = False
                 self.set_next_state(LISTEN)
                 return
@@ -123,7 +122,7 @@ class Listen(State):
                 if payload["condition"] == "Raining":
                     if random.random() > 0.5:
                         await self.agent.stop()
-                    
+
             case "FINISHED":
                 self.agent.centers_over += 1
                 self.set_next_state(LISTEN)
@@ -198,8 +197,8 @@ class DroneAgent(Agent):
         self.target_queue = []
         self.state = None
 
-        self.centers         = centers  
-        self.sim_speed       = None
+        self.centers = centers
+        self.sim_speed = None
         self.order_to_center = {}
 
         self.position = position
@@ -212,16 +211,16 @@ class DroneAgent(Agent):
         self.num_centers = len(centers)
         self.autonomy = autonomy
         self.timer = datetime.datetime.now()
-        self.global_timer    = datetime.datetime.now()
-        self.current_base    = None
+        self.global_timer = datetime.datetime.now()
+        self.current_base = None
         self.base_collisions = []
-        self.xy              = {"x": 1, "y": 1}
-        self.stats           = []
+        self.xy = {"x": 1, "y": 1}
+        self.stats = []
         self.timer_for_stats = None
-        self.block_timer     = False
-        self.centers_over    = 0
-        self.block_movement  = False
-        self.timer_working   = datetime.datetime.now()
+        self.block_timer = False
+        self.centers_over = 0
+        self.block_movement = False
+        self.timer_working = datetime.datetime.now()
         self.block_timer_working = False
 
     def get_position(self):
@@ -255,11 +254,10 @@ class DroneAgent(Agent):
 
             self.agent.block_timer = False
             time_to_deliver = (
-                datetime.datetime.now() - self.agent.timer_for_stats
+                    datetime.datetime.now() - self.agent.timer_for_stats
             ).total_seconds()
-            
-            msg = Message(to = str(self.agent.target_queue[0]["center_order"]) + "@localhost")
-            print("TARGET", self.agent.target_queue[0])
+
+            msg = Message(to=str(self.agent.target_queue[0]["center_order"]) + "@localhost")
             msg.body = json.dumps({"type": "DELIVERED", "order": self.agent.target_queue[0]['id']})
             await self.send(msg)
 
@@ -299,9 +297,10 @@ class DroneAgent(Agent):
                         self.agent.block_timer = True
                         self.agent.timer_for_stats = datetime.datetime.now()
 
-                case "BASE":   self.agent.state = "GOING_BASE"
-                case "CENTER": self.agent.state = "RETURNING_CENTER"
-
+                case "BASE":
+                    self.agent.state = "GOING_BASE"
+                case "CENTER":
+                    self.agent.state = "RETURNING_CENTER"
 
         def assign_pos(self):
             """ Documentation """
@@ -314,7 +313,7 @@ class DroneAgent(Agent):
 
             target = (self.agent.target_queue[0]['lat'], self.agent.target_queue[0]['lon'])
             delta = (
-                datetime.datetime.now() - self.agent.global_timer
+                    datetime.datetime.now() - self.agent.global_timer
             ).total_seconds()
 
             
@@ -343,15 +342,15 @@ class DroneAgent(Agent):
             )
 
             return fraction, target
-        
+
         async def deal_with_collisions(self):
             """ Documentation """
             base_collision = self.check_collisions_bases()
             if (
-                base_collision != None
-                and base_collision not in self.agent.base_collisions
-                and len(self.agent.target_queue) > 1
-                and self.agent.state == "DELIVERING"
+                    base_collision != None
+                    and base_collision not in self.agent.base_collisions
+                    and len(self.agent.target_queue) > 1
+                    and self.agent.state == "DELIVERING"
             ):
                 self.agent.base_collisions.append(base_collision)
                 msg = Message(
@@ -370,7 +369,7 @@ class DroneAgent(Agent):
                     len(self.agent.target_queue) == 0
                     and self.agent.centers_over == self.agent.num_centers
             ):
-                
+
                 print("Drone finished all deliveries")
                 timer_working = (datetime.datetime.now() - self.agent.timer_working).total_seconds()
                 for center in self.agent.centers:
@@ -382,15 +381,15 @@ class DroneAgent(Agent):
                     await self.send(msg)
                 await self.agent.stop()
 
-
         async def run(self):
 
+            print("Running drone", self.agent.jid, "STATE", self.agent.state, "TARGET QUEUE", self.agent.target_queue)
             await self.publish_stats()
-            
+
             if self.agent.block_movement or len(self.agent.target_queue) == 0:
                 return
 
-            self.assign_pos()            
+            self.assign_pos()
             self.update_state()
             f, t = self.update_position()
 
@@ -399,11 +398,15 @@ class DroneAgent(Agent):
                 self.agent.position = t
 
                 match self.agent.state:
-                    
-                    case "DELIVERING":       await self.delivery()
-                    case "RETURNING_CENTER": self.return_center()
-                    case "GOING_BASE":       await self.going_base()
-                    case _:                  pass
+
+                    case "DELIVERING":
+                        await self.delivery()
+                    case "RETURNING_CENTER":
+                        self.return_center()
+                    case "GOING_BASE":
+                        await self.going_base()
+                    case _:
+                        pass
 
             await self.deal_with_collisions()
             self.agent.global_timer = datetime.datetime.now()
@@ -411,8 +414,8 @@ class DroneAgent(Agent):
     def bid_combinations(self, orders, center_jid, counter):
         """ Documentation """
 
-        all_combos      = []
-        bids            = []
+        all_combos = []
+        bids = []
 
         existing_weight = sum(order["weight"] for order in self.target_queue if order["type"] == "ORDER")
         filtered_combos = self.generate_combos(orders, 2, existing_weight)
@@ -421,7 +424,6 @@ class DroneAgent(Agent):
 
         index = counter + 1
         for combo in all_combos:
-
             util, add_center = self.utility(combo, center_jid)
             bids.append(
                 {
@@ -429,14 +431,13 @@ class DroneAgent(Agent):
                     "value": util,
                     "sender": str(self.jid),
                     "id_bid": index
-                        
+
                 })
-            
+
             counter += 1
             self.pending["bids"][counter] = {"orders": combo, "add_center": add_center}
 
         return bids
-    
 
     def valid_target_queue(self, target_queue):
         """ Documentation """
@@ -511,7 +512,7 @@ class DroneAgent(Agent):
 
         temp_target_queue = []
 
-        if check_need_to_add_center:    
+        if check_need_to_add_center:
             temp_target_queue = self.target_queue.copy()
             temp_target_queue.extend(orders)
             temp_target_queue.append(nearest_center)
@@ -562,40 +563,83 @@ class DroneAgent(Agent):
 
             temp_target_queue.pop(0)
 
-            #TODO optimize target queue
+            temp_target_queue = self.optimize_target_queue(temp_target_queue)
 
             util = self.utility_value(temp_target_queue)
             utilities.append((combo, util))
 
-
-
         utilities = sorted(utilities, key=lambda x: x[1], reverse=True)
         return utilities
-    
-    class Behav2(OneShotBehaviour):
-        """ Documentation """
-        def on_available(self, jid, stanza):
-            print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
 
-        def on_subscribed(self, jid):
-            print("[{}] Agent {} has accepted the subscription.".format(self.agent.name, jid.split("@")[0]))
-            print("[{}] Contacts List: {}".format(self.agent.name, self.agent.presence.get_contacts()))
+    def optimize_target_queue(self, target_queue):
+        sub_target_queues = []
 
-        def on_subscribe(self, jid):
-            print("[{}] Agent {} asked for subscription. Let's aprove it.".format(self.agent.name, jid.split("@")[0]))
-            self.presence.approve(jid)
-            self.presence.subscribe(jid)
+        last_center = None
+        temp_taget_queue = []
+
+        for idx in range(len(target_queue) + 1):
+            if idx == len(target_queue) or (
+                    target_queue[idx]["type"] == "CENTER" and last_center != target_queue[idx]["id"]):
+                if last_center is not None:
+                    temp_taget_queue.insert(0, last_center)
+                sub_target_queues.append(temp_taget_queue)
+                if idx >= len(target_queue):
+                    break
+                temp_taget_queue = []
+                last_center = target_queue[idx]["id"]
+            elif target_queue[idx]["type"] == "CENTER" and last_center == target_queue[idx]["id"]:
+                continue
+            else:
+                temp_taget_queue.append(target_queue[idx])
+
+        optimized_target_queue = []
+
+        for sub_target_queue in sub_target_queues:
+            if sub_target_queue[0]["type"] != "CENTER" or len(sub_target_queue) <= 2:
+                optimized_target_queue.extend(sub_target_queue)
+
+            sub_target_queue_optimized = [sub_target_queue[0]]
+            weight = 0
+            distance = 0
+            for i in range(1, len(sub_target_queue) - 1):
+                weight += sub_target_queue[i]["weight"]
+                distance += haversine_distance(sub_target_queue[i]["lat"], sub_target_queue[i]["lon"],
+                                               sub_target_queue[i + 1]["lat"], sub_target_queue[i + 1]["lon"])
+
+                if weight > self.max_capacity or distance > self.max_autonomy:
+                    sub_target_queue_optimized.append(sub_target_queue[0])
+                    weight = 0
+                    distance = 0
+                else:
+                    sub_target_queue_optimized.append(sub_target_queue[i])
+
+            optimized_target_queue.extend(sub_target_queue_optimized)
+            # The last order is not append in the previous for
+            optimized_target_queue.append(sub_target_queue[-1])
+
+        return optimized_target_queue
 
 
-        async def run(self):
-            
+class Behav2(OneShotBehaviour):
+    def on_available(self, jid, stanza):
+        print("[{}] Agent {} is available.".format(self.agent.name, jid.split("@")[0]))
 
-            self.presence.set_available()
-            print(self.presence.state)
+    def on_subscribed(self, jid):
+        print("[{}] Agent {} has accepted the subscription.".format(self.agent.name, jid.split("@")[0]))
+        print("[{}] Contacts List: {}".format(self.agent.name, self.agent.presence.get_contacts()))
 
-            self.presence.on_subscribe = self.on_subscribe
-            self.presence.on_subscribed = self.on_subscribed
-            self.presence.on_available = self.on_available
+    def on_subscribe(self, jid):
+        print("[{}] Agent {} asked for subscription. Let's aprove it.".format(self.agent.name, jid.split("@")[0]))
+        self.presence.approve(jid)
+        self.presence.subscribe(jid)
+
+    async def run(self):
+        self.presence.set_available()
+        print(self.presence.state)
+
+        self.presence.on_subscribe = self.on_subscribe
+        self.presence.on_subscribed = self.on_subscribed
+        self.presence.on_available = self.on_available
 
     async def setup(self):
         """ Documentation """
