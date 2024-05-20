@@ -15,16 +15,35 @@ if not os.path.exists(models_dir):
 if not os.path.exists(logdir):
     os.makedirs(logdir)
 
-learning_rate = [0.007, 0.0007, 0.00007]
-gamma = [0.99, 0.5, 0.1]
-device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+combs = [
+    {"lr": 0.0007, "gamma": 0.99},
+    {"lr": 0.0007, "gamma": 0.5},
+    {"lr": 0.0007, "gamma": 0.1},
+    {"lr": 0.00007, "gamma": 0.99},
+    {"lr": 0.007, "gamma": 0.5},
+]
 
-env = gym.make('FrozenLake-v1')
-env.reset()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-for lr in learning_rate:
-    for g in gamma:
-        model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=logdir, learning_rate=lr, gamma=g, device=device)
-        for i in range(EPISODES):
-            model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=f"PPO_{lr}_{g}")
-            model.save(f"{models_dir}/PPO_{lr}_{g}_{TIMESTEPS*i}")
+env = gym.make("FrozenLake-v1")
+
+for comb in combs:
+    lr = comb["lr"]
+    g = comb["gamma"]
+    env.reset()
+    model = PPO(
+        "MlpPolicy",
+        env,
+        verbose=1,
+        tensorboard_log=logdir,
+        learning_rate=lr,
+        gamma=g,
+        device=device,
+    )
+    for i in range(EPISODES):
+        model.learn(
+            total_timesteps=TIMESTEPS,
+            reset_num_timesteps=False,
+            tb_log_name=f"PPO_{lr}_{g}",
+        )
+        model.save(f"{models_dir}/PPO_{lr}_{g}_{TIMESTEPS*i}")
