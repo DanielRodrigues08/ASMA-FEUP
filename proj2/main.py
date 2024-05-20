@@ -23,15 +23,15 @@ device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 env = gym.make('FrozenLake-v1')
 env.reset()
 
-for model in models:
+for model_name in models:
     for lr in learning_rate:
         for g in gamma:
-            if model == 'A2C':
+            if model_name == 'A2C':
                 model = A2C('MlpPolicy', env, verbose=1, tensorboard_log=logdir, learning_rate=lr, gamma=g, device=device)
-            elif model == 'PPO':
+            elif model_name == 'PPO':
                 model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=logdir, learning_rate=lr, gamma=g, device=device)
-            elif model == 'DQN':
+            elif model_name == 'DQN':
                 model = DQN('MlpPolicy', env, verbose=1, tensorboard_log=logdir, learning_rate=lr, gamma=g, device=device)
-            for i in range(30):
-                model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=f"{model}_{lr}_{g}")
+            for i in range(EPISODES):
+                model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=f"{model_name}_{lr}_{g}")
                 model.save(f"{models_dir}/{model}_{lr}_{g}_{TIMESTEPS*i}")
