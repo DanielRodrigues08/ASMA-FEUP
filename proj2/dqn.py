@@ -5,9 +5,9 @@ import os
 
 TIMESTEPS = 100000
 EPISODES = 10
-
-models_dir = "models"
-logdir = "logs"
+env_name   = "Taxi-v3"
+models_dir = "models" + env_name
+logdir     = "logs/" + env_name
 
 if not os.path.exists(models_dir):
     os.makedirs(models_dir)
@@ -47,4 +47,4 @@ for comb in combs:
             reset_num_timesteps=False,
             tb_log_name=f"DQN_{lr}_{g}",
         )
-        model.save(f"{models_dir}/{env_name}/DQN_{lr}_{g}_{TIMESTEPS*i}")
+        model.save(f"{models_dir}/DQN_{lr}_{g}_{TIMESTEPS*i}")
