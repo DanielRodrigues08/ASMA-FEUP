@@ -5,9 +5,9 @@ import os
 
 TIMESTEPS = 100000
 EPISODES = 10
-
-models_dir = "models"
-logdir = "logs"
+env_name   = "Taxi-v3"
+models_dir = "models/" + env_name
+logdir     = "logs/" + env_name
 
 if not os.path.exists(models_dir):
     os.makedirs(models_dir)
