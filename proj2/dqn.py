@@ -25,7 +25,8 @@ combs = [
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-env = gym.make("FrozenLake-v1")
+env_name = "Taxi-v3"
+env = gym.make(env_name)
 
 for comb in combs:
     lr = comb["lr"]
@@ -46,4 +47,4 @@ for comb in combs:
             reset_num_timesteps=False,
             tb_log_name=f"DQN_{lr}_{g}",
         )
-        model.save(f"{models_dir}/DQN_{lr}_{g}_{TIMESTEPS*i}")
+        model.save(f"{models_dir}/{env_name}/DQN_{lr}_{g}_{TIMESTEPS*i}")
