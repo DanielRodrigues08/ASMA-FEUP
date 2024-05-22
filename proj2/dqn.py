@@ -3,8 +3,8 @@ import torch
 from stable_baselines3 import DQN
 import os
 
-TIMESTEPS = 10000
-EPISODES = 30
+TIMESTEPS = 100000
+EPISODES = 10
 
 models_dir = "models"
 logdir = "logs"
