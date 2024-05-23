@@ -25,7 +25,7 @@ combs = [
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-env = gym.make("FrozenLake-v1")
+env = gym.make("Taxi-v3")
 
 for comb in combs:
     lr = comb["lr"]
