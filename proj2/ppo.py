@@ -16,8 +16,8 @@ if not os.path.exists(logdir):
     os.makedirs(logdir)
 
 combs = [
-    {"lr": 0.0007, "gamma": 0.99},
-    {"lr": 0.0007, "gamma": 0.5},
+    #{"lr": 0.0007, "gamma": 0.99},
+    #{"lr": 0.0007, "gamma": 0.5},
     {"lr": 0.0007, "gamma": 0.1},
     {"lr": 0.00007, "gamma": 0.99},
     {"lr": 0.007, "gamma": 0.5},
@@ -25,7 +25,7 @@ combs = [
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-env = gym.make("FrozenLake-v1")
+env = gym.make("Taxi-v3")
 
 for comb in combs:
     lr = comb["lr"]

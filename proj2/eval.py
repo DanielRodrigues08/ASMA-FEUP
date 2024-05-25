@@ -7,11 +7,12 @@ from stable_baselines3 import PPO
 
 import os
 
-MAPS = ["GFFF", "FHFH", "FFFF", "HFFS"]
+#MAPS = ["GFFF", "FHFH", "FFFF", "HFFS"]
 
-env = gym.make('FrozenLake-v1', render_mode = "human")
+#env = gym.make('FrozenLake-v1', render_mode = "human")
+env = gym.make('Taxi-v3', render_mode = "human")
 
-model = PPO.load("models/PPO_0.0007_0.99_900000")
+model = PPO.load("models/Taxi-v3/PPO_0.0007_0.99_900000")
 
 
 rewards_sum = 0
