@@ -1,11 +1,7 @@
 # Agent and Multi-Agent Systems
-
-## How to install
-
-...
+FEUP - M.EIC Y1S2
 
 ## Team
-
 - Daniel Rodrigues (202006562)
 - Miguel Silva (202007972)
 - Tomás Maciel (202006845)
